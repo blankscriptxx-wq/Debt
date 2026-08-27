@@ -1,0 +1,38 @@
+{
+  "name": "solvenda",
+  "private": true,
+  "version": "0.1.0",
+  "packageManager": "pnpm@10.33.0",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "typecheck": "turbo run typecheck",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "db:up": "docker compose up -d postgres",
+    "db:migrate": "tsx packages/db/src/migrate.ts",
+    "db:seed": "tsx packages/db/src/seed.ts"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "turbo": "^2.3.3",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8",
+    "@solvenda/db": "workspace:*",
+    "@solvenda/testing": "workspace:*",
+    "@solvenda/audit": "workspace:*"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": [
+      "esbuild",
+      "argon2",
+      "@tailwindcss/oxide",
+      "sharp"
+    ]
+  }
+}
