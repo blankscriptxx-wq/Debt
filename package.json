@@ -28,7 +28,8 @@
     "@solvenda/audit": "workspace:*",
     "@solvenda/auth": "workspace:*",
     "@solvenda/core": "workspace:*",
-    "@solvenda/ai": "workspace:*"
+    "@solvenda/ai": "workspace:*",
+    "@solvenda/workflow": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
