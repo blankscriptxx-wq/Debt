@@ -75,13 +75,22 @@ export function assessHealth(signals: readonly Signal[]): HealthAssessment {
 
   const drivers = [...concerning].sort((a, b) => b.weight - a.weight).slice(0, 5);
 
-  const summary =
-    drivers.length === 0
-      ? 'No concerns identified on this case.'
-      : `${drivers.length === concerning.length ? '' : `${concerning.length} concerns, led by `}` +
-        drivers.map((d) => d.title.toLowerCase()).slice(0, 3).join('; ') + '.';
+  const summary = buildSummary(concerning, drivers);
 
   return { score, band, drivers, summary };
+}
+
+function buildSummary(concerning: readonly Signal[], drivers: readonly Signal[]): string {
+  if (drivers.length === 0) return 'No concerns identified on this case.';
+
+  // Titles are written as sentences, so lower-casing them mid-list reads badly
+  // and upper-casing an acronym-led title reads worse. Join them as they are
+  // and only fix the first character.
+  const listed = drivers.slice(0, 3).map((d) => d.title).join('; ');
+  const prefix = drivers.length === concerning.length
+    ? '' : `${concerning.length} concerns, led by: `;
+  const body = prefix ? `${prefix}${listed}` : listed;
+  return `${body.charAt(0).toUpperCase()}${body.slice(1)}.`;
 }
 
 export function signal(input: Omit<Signal, 'weight'> & { weight?: number }): Signal {

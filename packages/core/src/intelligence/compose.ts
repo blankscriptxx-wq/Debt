@@ -331,14 +331,20 @@ function engagementSignals(input: IntelligenceInput, now: Date): Signal[] {
   if (!e) return [];
   const out: Signal[] = [];
 
-  if (e.lastClientResponseAt) {
-    const days = Math.floor((now.getTime() - new Date(e.lastClientResponseAt).getTime()) / DAY_MS);
+  // A client who has never replied is at least as disengaged as one who has
+  // stopped, so the clock runs from their last response or, failing that, from
+  // the first time the firm reached out.
+  const since = e.lastClientResponseAt ?? e.lastClientContactAt;
+  if (since && e.unansweredOutboundCount > 0) {
+    const days = Math.floor((now.getTime() - new Date(since).getTime()) / DAY_MS);
     if (days >= 21) {
       out.push(signal({
         key: 'client-disengaged',
         category: 'engagement',
         severity: days >= 42 ? 'urgent' : 'attention',
-        title: `No response from the client for ${days} days`,
+        title: e.lastClientResponseAt
+          ? `No response from the client for ${days} days`
+          : `The client has never responded, over ${days} days`,
         detail:
           `${e.unansweredOutboundCount} outbound message${e.unansweredOutboundCount === 1 ? '' : 's'} ` +
           `unanswered. Disengagement often precedes a plan breaking down, and can itself be a ` +

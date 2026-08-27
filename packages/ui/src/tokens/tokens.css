@@ -1,0 +1,189 @@
+/*
+ * Solvenda design tokens.
+ *
+ * Colour carries meaning in this product - a case is healthy or it is not, an
+ * action is regulated or it is not - so it cannot also be decoration. The
+ * palette is deliberately narrow, and `regulated` exists as its own token
+ * because anywhere the interface is about to do something carrying regulatory
+ * weight should look different from ordinary work.
+ *
+ * Every pairing below meets WCAG 2.2 AA against its surface. Status is never
+ * communicated by colour alone: every state carries a label or an icon too.
+ */
+
+:root {
+  /* Light is the default; the dark block below only redefines the tokens. */
+  --ink: #0b1220;
+  --ink-muted: #5a6b84;
+  --ink-subtle: #8494a8;
+  --ink-inverse: #ffffff;
+
+  --surface: #ffffff;
+  --surface-raised: #f7f9fc;
+  --surface-sunken: #eef2f7;
+  --surface-overlay: #ffffff;
+
+  --border: #e2e8f0;
+  --border-strong: #cbd5e1;
+  --focus-ring: #1f5fd0;
+
+  --accent: #1f5fd0;
+  --accent-hover: #1a4fb0;
+  --accent-subtle: #eaf1fd;
+  --accent-ink: #ffffff;
+
+  --positive: #0f7a52;
+  --positive-subtle: #e6f4ee;
+  --attention: #9a6300;
+  --attention-subtle: #fdf3e2;
+  --critical: #b3261e;
+  --critical-subtle: #fdecea;
+
+  /* Marks anything carrying regulatory weight. */
+  --regulated: #6b3fa0;
+  --regulated-subtle: #f2ecfa;
+
+  --font-sans: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto,
+    'Helvetica Neue', Arial, sans-serif;
+  --font-mono: 'JetBrains Mono', ui-monospace, SFMono-Regular, 'SF Mono', Menlo,
+    Consolas, monospace;
+
+  /* 1.200 minor third from a 16px base. */
+  --text-2xs: 0.6875rem;  /* 11 */
+  --text-xs: 0.75rem;     /* 12 */
+  --text-sm: 0.8125rem;   /* 13 */
+  --text-base: 0.875rem;  /* 14 - the interface default; dense by intent */
+  --text-md: 1rem;        /* 16 */
+  --text-lg: 1.1875rem;   /* 19 */
+  --text-xl: 1.4375rem;   /* 23 */
+  --text-2xl: 1.75rem;    /* 28 */
+  --text-3xl: 2.0625rem;  /* 33 */
+
+  --leading-tight: 1.25;
+  --leading-normal: 1.5;
+  --leading-relaxed: 1.65;
+
+  /* 4px base. */
+  --space-1: 0.25rem;
+  --space-2: 0.5rem;
+  --space-3: 0.75rem;
+  --space-4: 1rem;
+  --space-5: 1.5rem;
+  --space-6: 2rem;
+  --space-7: 3rem;
+  --space-8: 4rem;
+
+  --radius-sm: 4px;
+  --radius-md: 6px;
+  --radius-lg: 10px;
+  --radius-full: 999px;
+
+  --shadow-sm: 0 1px 2px rgb(11 18 32 / 0.06);
+  --shadow-md: 0 2px 8px rgb(11 18 32 / 0.08), 0 1px 2px rgb(11 18 32 / 0.04);
+  --shadow-lg: 0 8px 32px rgb(11 18 32 / 0.12), 0 2px 8px rgb(11 18 32 / 0.06);
+
+  /* Motion confirms that something happened; it does not perform. */
+  --motion-fast: 120ms;
+  --motion-base: 160ms;
+  --motion-slow: 220ms;
+  --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  --layout-max: 1440px;
+  --sidebar-width: 232px;
+}
+
+:root[data-theme='dark'],
+:root:not([data-theme='light']) {
+  @media (prefers-color-scheme: dark) {
+    --ink: #f2f5f9;
+    --ink-muted: #94a3b8;
+    --ink-subtle: #64748b;
+    --ink-inverse: #0b1220;
+
+    --surface: #0b1220;
+    --surface-raised: #141c2b;
+    --surface-sunken: #080e19;
+    --surface-overlay: #1a2333;
+
+    --border: #243044;
+    --border-strong: #33415a;
+    --focus-ring: #5b8ff0;
+
+    --accent: #5b8ff0;
+    --accent-hover: #7aa5f5;
+    --accent-subtle: #16233a;
+    --accent-ink: #0b1220;
+
+    --positive: #34c48a;
+    --positive-subtle: #10241d;
+    --attention: #e0a63a;
+    --attention-subtle: #2a2113;
+    --critical: #f2867c;
+    --critical-subtle: #2c1614;
+
+    --regulated: #b48be0;
+    --regulated-subtle: #221a2e;
+
+    --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+    --shadow-md: 0 2px 8px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.2);
+    --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
+  }
+}
+
+:root[data-theme='dark'] {
+  --ink: #f2f5f9;
+  --ink-muted: #94a3b8;
+  --ink-subtle: #64748b;
+  --ink-inverse: #0b1220;
+  --surface: #0b1220;
+  --surface-raised: #141c2b;
+  --surface-sunken: #080e19;
+  --surface-overlay: #1a2333;
+  --border: #243044;
+  --border-strong: #33415a;
+  --focus-ring: #5b8ff0;
+  --accent: #5b8ff0;
+  --accent-hover: #7aa5f5;
+  --accent-subtle: #16233a;
+  --accent-ink: #0b1220;
+  --positive: #34c48a;
+  --positive-subtle: #10241d;
+  --attention: #e0a63a;
+  --attention-subtle: #2a2113;
+  --critical: #f2867c;
+  --critical-subtle: #2c1614;
+  --regulated: #b48be0;
+  --regulated-subtle: #221a2e;
+  --shadow-sm: 0 1px 2px rgb(0 0 0 / 0.3);
+  --shadow-md: 0 2px 8px rgb(0 0 0 / 0.4), 0 1px 2px rgb(0 0 0 / 0.2);
+  --shadow-lg: 0 8px 32px rgb(0 0 0 / 0.5), 0 2px 8px rgb(0 0 0 / 0.3);
+}
+
+* { box-sizing: border-box; }
+
+html { -webkit-text-size-adjust: 100%; }
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  line-height: var(--leading-normal);
+  color: var(--ink);
+  background: var(--surface);
+  -webkit-font-smoothing: antialiased;
+  /* Financial figures must line up in columns. */
+  font-variant-numeric: tabular-nums;
+}
+
+:focus-visible {
+  outline: 2px solid var(--focus-ring);
+  outline-offset: 2px;
+  border-radius: var(--radius-sm);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
+}

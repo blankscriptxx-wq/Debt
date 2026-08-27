@@ -46,7 +46,9 @@ export async function caseTimeline(
     (
       SELECT c.id, 'communication' AS kind, c.occurred_at,
              c.channel, c.direction,
-             coalesce(c.subject, initcap(replace(c.channel, '-', ' '))) AS title,
+             -- The channel is returned raw so the interface can label it
+             -- properly; "Sms" is not a word.
+             coalesce(c.subject, c.channel) AS title,
              left(coalesce(c.body_redacted, c.body), 400) AS detail,
              coalesce(u.full_name, c.counterparty_label) AS actor_label,
              NULL::text AS severity, c.simulated
@@ -112,7 +114,15 @@ export async function engagementSummary(
     last_outbound: string | null; last_inbound: string | null; unanswered: string;
   }>(sql`
     SELECT
-      max(occurred_at) FILTER (WHERE direction = 'outbound') AS last_outbound,
+      -- The earliest unanswered outbound: how long the firm has been trying,
+      -- which is the question a disengagement signal is actually asking.
+      min(occurred_at) FILTER (
+        WHERE direction = 'outbound'
+          AND occurred_at > coalesce(
+            (SELECT max(occurred_at) FROM communications
+              WHERE client_id = ${clientId} AND direction = 'inbound'),
+            '-infinity'::timestamptz)
+      ) AS last_outbound,
       max(occurred_at) FILTER (WHERE direction = 'inbound')  AS last_inbound,
       count(*) FILTER (
         WHERE direction = 'outbound'
