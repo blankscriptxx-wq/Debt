@@ -85,7 +85,9 @@ describe('audit ledger', () => {
   it('verifies clean chains', async () => {
     const results = await withPlatform(
       { operatorId: tenant.operatorId, reason: 'integrity verification test' },
-      (db) => verifyAuditChain(db),
+      // Scoped to this test's own tenants: another test in the suite
+      // deliberately corrupts a chain to prove detection works.
+      (db) => verifyAuditChain(db, tenant.id),
     );
     expect(results.length).toBeGreaterThan(0);
     for (const r of results) {

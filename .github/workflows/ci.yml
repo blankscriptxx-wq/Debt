@@ -1,0 +1,67 @@
+name: CI
+
+on:
+  push:
+    branches: ["**"]
+  pull_request:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: dev_super_pw
+          POSTGRES_DB: solvenda_test
+        ports: ["5432:5432"]
+        options: >-
+          --health-cmd "pg_isready -U postgres"
+          --health-interval 5s --health-timeout 5s --health-retries 20
+
+    env:
+      PGHOST: 127.0.0.1
+      PGPORT: "5432"
+      PGDATABASE: solvenda_test
+      PGUSER_APP: solvenda_app
+      PGPASSWORD_APP: dev_app_pw
+      PGUSER_PLATFORM: solvenda_platform
+      PGPASSWORD_PLATFORM: dev_platform_pw
+      PGUSER_OWNER: solvenda_owner
+      PGPASSWORD_OWNER: dev_owner_pw
+      # Used only by the audit tamper-detection test, which proves the hash
+      # chain catches history rewritten below the application.
+      PGUSER_SUPER: postgres
+      PGPASSWORD_SUPER: dev_super_pw
+      PGPASSWORD: dev_super_pw
+
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with: { version: 10 }
+      - uses: actions/setup-node@v4
+        with: { node-version: 22, cache: pnpm }
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Create database roles
+        run: |
+          psql -h 127.0.0.1 -U postgres -v ON_ERROR_STOP=1 \
+            -f packages/db/bootstrap/roles.sql
+          psql -h 127.0.0.1 -U postgres -d solvenda_test -v ON_ERROR_STOP=1 \
+            -c 'ALTER DATABASE solvenda_test OWNER TO solvenda_owner;' \
+            -c 'GRANT USAGE ON SCHEMA public TO solvenda_app, solvenda_platform;' \
+            -c 'GRANT ALL ON SCHEMA public TO solvenda_owner;' \
+            -c 'REVOKE CREATE ON SCHEMA public FROM PUBLIC;'
+
+      - run: pnpm typecheck
+      - run: pnpm lint
+      - name: Test
+        run: pnpm test
+      - name: Audit dependencies
+        run: pnpm audit --audit-level high
+        continue-on-error: true

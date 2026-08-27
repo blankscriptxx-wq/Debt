@@ -11,6 +11,9 @@ importers:
       '@solvenda/audit':
         specifier: workspace:*
         version: link:packages/audit
+      '@solvenda/auth':
+        specifier: workspace:*
+        version: link:packages/auth
       '@solvenda/db':
         specifier: workspace:*
         version: link:packages/db
@@ -41,6 +44,25 @@ importers:
       drizzle-orm:
         specifier: ^0.38.2
         version: 0.38.4(@types/pg@8.23.1)(pg@8.23.0)
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/auth:
+    dependencies:
+      '@solvenda/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@solvenda/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.38.2
+        version: 0.38.4(@types/pg@8.23.1)(pg@8.23.0)
+      hash-wasm:
+        specifier: ^4.12.0
+        version: 4.12.0
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -739,6 +761,9 @@ packages:
     engines: {node: ^8.16.0 || ^10.6.0 || >=11.0.0}
     os: [darwin]
 
+  hash-wasm@4.12.0:
+    resolution: {integrity: sha512-+/2B2rYLb48I/evdOIhP+K/DD2ca2fgBjp6O+GBEnCDk2e4rpeXIK8GvIyRPjTezgmWn9gmKwkQjjx6BtqDHVQ==}
+
   loupe@3.2.1:
     resolution: {integrity: sha512-CdzqowRJCeLU72bHvWqwRBBlLcMEtIvGrlvef74kMnV2AolS9Y8xUv1I0U/MNAWMhBlKIoyuEgoJ0t/bbwHbLQ==}
 
@@ -1333,6 +1358,8 @@ snapshots:
 
   fsevents@2.3.3:
     optional: true
+
+  hash-wasm@4.12.0: {}
 
   loupe@3.2.1: {}
 

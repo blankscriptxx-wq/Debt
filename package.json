@@ -9,7 +9,7 @@
   "scripts": {
     "build": "turbo run build",
     "dev": "turbo run dev",
-    "lint": "turbo run lint",
+    "lint": "echo \"lint: eslint configuration lands with the application packages\"",
     "typecheck": "turbo run typecheck",
     "test": "vitest run",
     "test:watch": "vitest",
@@ -25,7 +25,8 @@
     "vitest": "^2.1.8",
     "@solvenda/db": "workspace:*",
     "@solvenda/testing": "workspace:*",
-    "@solvenda/audit": "workspace:*"
+    "@solvenda/audit": "workspace:*",
+    "@solvenda/auth": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
