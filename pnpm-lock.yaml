@@ -14,6 +14,9 @@ importers:
       '@solvenda/auth':
         specifier: workspace:*
         version: link:packages/auth
+      '@solvenda/core':
+        specifier: workspace:*
+        version: link:packages/core
       '@solvenda/db':
         specifier: workspace:*
         version: link:packages/db
@@ -63,6 +66,28 @@ importers:
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/core:
+    dependencies:
+      '@solvenda/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@solvenda/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@solvenda/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.38.2
+        version: 0.38.4(@types/pg@8.23.1)(pg@8.23.0)
+      zod:
+        specifier: ^3.24.1
+        version: 3.25.76
     devDependencies:
       typescript:
         specifier: ^5.7.2
@@ -969,6 +994,9 @@ packages:
     resolution: {integrity: sha512-LKYU1iAXJXUgAXn9URjiu+MWhyUXHsvfp7mcuYm9dSUKK0/CjtrUwFAxD82/mCWbtLsGjFIad0wIsod4zrTAEQ==}
     engines: {node: '>=0.4'}
 
+  zod@3.25.76:
+    resolution: {integrity: sha512-gzUt/qt81nXsFGKIFcC3YnfEAx5NkunCfnDlvuBSSFS02bcXu4Lmea0AFIUwbLWxWPx3d9p8S5QoaujKcNQxcQ==}
+
 snapshots:
 
   '@esbuild/aix-ppc64@0.21.5':
@@ -1567,3 +1595,5 @@ snapshots:
       stackback: 0.0.2
 
   xtend@4.0.2: {}
+
+  zod@3.25.76: {}

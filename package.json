@@ -26,7 +26,8 @@
     "@solvenda/db": "workspace:*",
     "@solvenda/testing": "workspace:*",
     "@solvenda/audit": "workspace:*",
-    "@solvenda/auth": "workspace:*"
+    "@solvenda/auth": "workspace:*",
+    "@solvenda/core": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
