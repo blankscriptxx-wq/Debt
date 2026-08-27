@@ -29,7 +29,8 @@
     "@solvenda/auth": "workspace:*",
     "@solvenda/core": "workspace:*",
     "@solvenda/ai": "workspace:*",
-    "@solvenda/workflow": "workspace:*"
+    "@solvenda/workflow": "workspace:*",
+    "@solvenda/comms": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [

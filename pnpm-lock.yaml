@@ -17,6 +17,9 @@ importers:
       '@solvenda/auth':
         specifier: workspace:*
         version: link:packages/auth
+      '@solvenda/comms':
+        specifier: workspace:*
+        version: link:packages/comms
       '@solvenda/core':
         specifier: workspace:*
         version: link:packages/core
@@ -100,6 +103,28 @@ importers:
       hash-wasm:
         specifier: ^4.12.0
         version: 4.12.0
+    devDependencies:
+      typescript:
+        specifier: ^5.7.2
+        version: 5.9.3
+
+  packages/comms:
+    dependencies:
+      '@solvenda/ai':
+        specifier: workspace:*
+        version: link:../ai
+      '@solvenda/audit':
+        specifier: workspace:*
+        version: link:../audit
+      '@solvenda/auth':
+        specifier: workspace:*
+        version: link:../auth
+      '@solvenda/db':
+        specifier: workspace:*
+        version: link:../db
+      drizzle-orm:
+        specifier: ^0.38.2
+        version: 0.38.4(@types/pg@8.23.1)(pg@8.23.0)
     devDependencies:
       typescript:
         specifier: ^5.7.2
