@@ -1,0 +1,110 @@
+@import '@solvenda/ui/tokens.css';
+@import '@solvenda/ui/components.css';
+
+/*
+ * The client portal.
+ *
+ * Designed for a phone first, and for someone in the middle of the hardest
+ * financial period of their life. That means: one thing per screen, larger type
+ * than the console, generous touch targets, no jargon, no dense tables, and
+ * progress that is legible at a glance so a person can see that something is
+ * actually happening.
+ */
+
+body { background: var(--surface-sunken); font-size: var(--text-md); }
+
+.cp-shell {
+  max-width: 560px; margin: 0 auto; min-height: 100vh;
+  background: var(--surface); display: flex; flex-direction: column;
+}
+@media (min-width: 600px) {
+  .cp-shell { margin: var(--space-6) auto; border-radius: var(--radius-lg);
+              border: 1px solid var(--border); min-height: auto; }
+}
+
+.cp-header {
+  padding: var(--space-4) var(--space-5);
+  border-bottom: 1px solid var(--border);
+  display: flex; align-items: center; justify-content: space-between; gap: var(--space-3);
+}
+.cp-header__firm { font-weight: 600; }
+.cp-header__sub { font-size: var(--text-sm); color: var(--ink-muted); margin: 0; }
+
+.cp-signout {
+  font: inherit; font-size: var(--text-base); color: var(--ink-muted);
+  background: transparent; border: 1px solid var(--border);
+  border-radius: var(--radius-md); padding: var(--space-2) var(--space-3);
+  min-height: 44px; min-width: 44px; cursor: pointer;
+}
+.cp-signout:hover { background: var(--surface-raised); color: var(--ink); }
+
+/* Extra bottom padding so the sticky navigation never covers the last
+   line of content on a short screen. */
+.cp-main { padding: var(--space-5) var(--space-5) var(--space-7); flex: 1; }
+.cp-h1 { font-size: var(--text-xl); margin: 0 0 var(--space-2); letter-spacing: -0.01em; }
+.cp-lede { margin: 0 0 var(--space-5); color: var(--ink-muted); line-height: var(--leading-relaxed); }
+
+/* Progress: a person should see where they are without reading anything. */
+.cp-progress { list-style: none; margin: 0 0 var(--space-6); padding: 0; }
+.cp-step {
+  display: grid; grid-template-columns: 32px 1fr; gap: var(--space-4);
+  padding-bottom: var(--space-5); position: relative;
+}
+.cp-step:not(:last-child)::before {
+  content: ''; position: absolute; left: 15px; top: 32px; bottom: 0;
+  width: 2px; background: var(--border);
+}
+.cp-step--done:not(:last-child)::before { background: var(--positive); }
+.cp-step__dot {
+  width: 32px; height: 32px; border-radius: 50%; display: grid; place-items: center;
+  border: 2px solid var(--border); background: var(--surface);
+  font-size: var(--text-sm); font-weight: 600; color: var(--ink-subtle); z-index: 1;
+}
+.cp-step--done .cp-step__dot { border-color: var(--positive); background: var(--positive);
+                               color: #fff; }
+.cp-step--current .cp-step__dot { border-color: var(--accent); color: var(--accent);
+                                  box-shadow: 0 0 0 4px var(--accent-subtle); }
+.cp-step__title { margin: 4px 0 0; font-weight: 600; }
+.cp-step--todo .cp-step__title { color: var(--ink-subtle); font-weight: 500; }
+.cp-step__detail { margin: var(--space-1) 0 0; color: var(--ink-muted); font-size: var(--text-base); }
+
+.cp-card {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-5); margin-bottom: var(--space-4); background: var(--surface);
+}
+.cp-card--action { border-color: var(--accent); background: var(--accent-subtle); }
+.cp-card__title { margin: 0 0 var(--space-2); font-size: var(--text-md); font-weight: 600; }
+
+/* Touch targets that a tired thumb can hit. */
+.cp-btn {
+  display: block; width: 100%; text-align: center; font: inherit; font-weight: 600;
+  padding: var(--space-4); border-radius: var(--radius-md); border: 1px solid transparent;
+  min-height: 52px; cursor: pointer; text-decoration: none;
+}
+.cp-btn--primary { background: var(--accent); color: var(--accent-ink); }
+.cp-btn--secondary { background: var(--surface); color: var(--ink); border-color: var(--border-strong); }
+
+.cp-nav {
+  display: flex; border-top: 1px solid var(--border); position: sticky; bottom: 0;
+  background: var(--surface);
+}
+.cp-nav a {
+  flex: 1; text-align: center; padding: var(--space-3) var(--space-2) var(--space-4);
+  font-size: var(--text-sm); color: var(--ink-muted); text-decoration: none; min-height: 56px;
+}
+.cp-nav a[aria-current='page'] { color: var(--accent); font-weight: 600; }
+
+.cp-figure { display: flex; justify-content: space-between; padding: var(--space-3) 0;
+             border-bottom: 1px solid var(--border); }
+.cp-figure:last-child { border-bottom: none; }
+.cp-figure__label { color: var(--ink-muted); }
+.cp-figure__value { font-weight: 600; font-variant-numeric: tabular-nums; }
+
+.cp-message { padding: var(--space-4); border-radius: var(--radius-md);
+              margin-bottom: var(--space-3); }
+.cp-message--in { background: var(--surface-raised); }
+.cp-message--out { background: var(--accent-subtle); }
+.cp-message__meta { font-size: var(--text-sm); color: var(--ink-muted); margin: 0 0 var(--space-2); }
+.cp-message__body { margin: 0; line-height: var(--leading-relaxed); }
+
+.cp-login { padding: var(--space-6) var(--space-5); }

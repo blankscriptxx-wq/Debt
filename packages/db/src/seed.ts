@@ -237,6 +237,25 @@ async function main() {
                   ${adviserId}, ${task.dueAt}, 'user')`);
       }
 
+      // A portal account for the first client, so the consumer experience can
+      // be exercised end to end.
+      if (index === 0) {
+        const portalUser = await db.execute<{ id: string }>(sql`
+          INSERT INTO users (email, full_name, user_type, status, password_hash)
+          VALUES (${scenario.email}, ${`${scenario.firstName} ${scenario.lastName}`},
+                  'client', 'active', ${passwordHash})
+          ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+          RETURNING id`);
+        await db.execute(sql`
+          UPDATE clients SET portal_user_id = ${portalUser.rows[0]!.id} WHERE id = ${clientId}`);
+        if (roleIds['client']) {
+          await db.execute(sql`
+            INSERT INTO user_roles (user_id, role_id)
+            VALUES (${portalUser.rows[0]!.id}, ${roleIds['client']})
+            ON CONFLICT DO NOTHING`);
+        }
+      }
+
       for (const message of scenario.communications ?? []) {
         await db.execute(sql`
           INSERT INTO communications (case_id, client_id, channel, direction, counterparty_type,
@@ -257,7 +276,11 @@ async function main() {
   console.log(`  firm:     ${FIRM_SLUG}`);
   console.log(`  email:    ${ADMIN_EMAIL}`);
   console.log(`  password: ${ADMIN_PASSWORD}`);
-  console.log(`\nSet SOLVENDA_SIGNIN_OPERATOR_ID=${operatorId} for the console's sign-in lookup.`);
+  console.log(`\nClient portal:`);
+  console.log(`  firm:     ${FIRM_SLUG}`);
+  console.log(`  email:    joanne.whitfield@example.test`);
+  console.log(`  password: ${ADMIN_PASSWORD}`);
+  console.log(`\nSet SOLVENDA_SIGNIN_OPERATOR_ID=${operatorId} for the sign-in lookup.`);
 }
 
 const PLACEHOLDER_TRIGGERS = {
