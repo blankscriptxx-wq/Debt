@@ -1,7 +1,6 @@
 import { notFound } from 'next/navigation';
 import { requireSession, query } from '@/lib/console/session';
-import { loadCaseDetail, loadDashboard } from '@/lib/console/data';
-import { AppShell } from '@/components/console/app-shell';
+import { loadCaseDetail } from '@/lib/console/data';
 import { ProposalDecision } from '@/components/console/proposal-decision';
 import {
   Badge, Card, DataTable, EmptyState, Grid, HealthMeter, Money,
@@ -24,10 +23,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const session = await requireSession();
   const { id } = await params;
 
-  const [detail, dashboard] = await Promise.all([
-    query(session, (db) => loadCaseDetail(db, id)),
-    query(session, (db) => loadDashboard(db, session.user.id)),
-  ]);
+  const detail = await query(session, (db) => loadCaseDetail(db, id));
 
   if (!detail) notFound();
   const { intelligence: intel } = detail;
@@ -37,33 +33,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
   const totalDebt = statement['debt.qualifyingPence'];
 
   return (
-    <AppShell
-      firmName={session.tenant.name}
-      userName={session.user.fullName}
-      counts={{ cases: dashboard.openCases, tasks: dashboard.openTasks,
-                approvals: dashboard.pendingApprovals }}
-      current="cases"
-    >
-      <PageHeader
-        eyebrow={`${detail.caseTypeName} · ${detail.reference}`}
-        title={detail.clientName}
-        meta={
-          <>
-            <span>Stage: <strong>{intel.adviceReadiness.stage}</strong></span>
-            <span>Adviser: {detail.ownerName ?? 'Unassigned'}</span>
-            {intel.adviceReadiness.isAdvicePoint && (
-              <Badge tone="regulated">At the advice point</Badge>
-            )}
-          </>
-        }
-        actions={
-          intel.adviceReadiness.ready && intel.adviceReadiness.isAdvicePoint ? (
-            <a className="sv-btn sv-btn--regulated sv-btn--md" href={`/app/cases/${id}/advice`}>
-              Record advice decision
-            </a>
-          ) : null
-        }
-      />
+    <>
 
       <div className="sv-case-layout">
         <Stack gap={5}>
@@ -283,7 +253,7 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
           </Card>
         </Stack>
       </div>
-    </AppShell>
+    </>
   );
 }
 

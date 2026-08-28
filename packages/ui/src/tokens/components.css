@@ -23,6 +23,8 @@
 .sv-btn--ghost:hover:not(:disabled) { background: var(--surface-raised); color: var(--ink); }
 .sv-btn--danger { background: var(--critical); color: #fff; }
 .sv-btn--regulated { background: var(--regulated); color: #fff; }
+.sv-btn--danger { background: var(--critical); color: #fff; }
+.sv-btn--danger:hover:not(:disabled) { filter: brightness(1.08); }
 
 .sv-spinner {
   width: 12px; height: 12px; border-radius: 50%;
@@ -232,3 +234,71 @@
 .sv-demo__btn span {
   display: block; margin-top: 2px; font-size: var(--text-xs); color: var(--ink-muted);
 }
+
+/* --- forms, totals and the case file tab strip ---------------------------- */
+.sv-form { display: flex; flex-direction: column; gap: var(--space-2); }
+.sv-form__result {
+  margin: 0 0 var(--space-4); padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md); font-size: var(--text-base);
+  border: 1px solid var(--border);
+}
+.sv-form__result--ok { background: var(--positive-subtle); border-color: var(--positive); }
+.sv-form__result--error { background: var(--critical-subtle); border-color: var(--critical); }
+.sv-form__actions {
+  display: flex; gap: var(--space-3); margin-top: var(--space-5);
+  padding-top: var(--space-4); border-top: 1px solid var(--border);
+}
+
+/* Sticky, because the point of it is to be visible while typing above it. */
+.sv-summary {
+  position: sticky; bottom: 0; z-index: 5;
+  display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
+  gap: 1px; margin-top: var(--space-6);
+  background: var(--border); border-top: 1px solid var(--border);
+}
+.sv-summary__cell {
+  display: flex; flex-direction: column; gap: 2px;
+  padding: var(--space-4) var(--space-5); background: var(--surface-raised);
+}
+.sv-summary__cell--positive { background: var(--positive-subtle); }
+.sv-summary__cell--critical { background: var(--critical-subtle); }
+.sv-summary__cell--accent { background: var(--accent-subtle); }
+.sv-summary__label {
+  font-size: var(--text-xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--ink-subtle);
+}
+.sv-summary__value {
+  font-size: var(--text-lg); font-weight: 640; color: var(--ink);
+  font-variant-numeric: tabular-nums;
+}
+.sv-summary__detail { font-size: var(--text-xs); color: var(--ink-subtle); }
+
+.sv-tabs {
+  display: flex; gap: var(--space-1); overflow-x: auto; scrollbar-width: none;
+  border-bottom: 1px solid var(--border); margin-bottom: var(--space-6);
+}
+.sv-tabs::-webkit-scrollbar { display: none; }
+.sv-tabs__tab {
+  display: flex; align-items: center; gap: var(--space-2); white-space: nowrap;
+  padding: var(--space-3) var(--space-4); min-height: 44px;
+  color: var(--ink-muted); text-decoration: none; font-size: var(--text-base);
+  border-bottom: 2px solid transparent; margin-bottom: -1px;
+}
+.sv-tabs__tab:hover { color: var(--ink); }
+.sv-tabs__tab--current { color: var(--accent); border-bottom-color: var(--accent); font-weight: 600; }
+.sv-tabs__tab:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+.sv-tabs__count {
+  font-size: var(--text-xs); background: var(--surface-sunken);
+  padding: 1px var(--space-2); border-radius: 999px; color: var(--ink-muted);
+}
+
+/* Checkbox lists and small headings inside form cards. */
+.sv-subheading {
+  margin: 0 0 var(--space-3); font-size: var(--text-sm); font-weight: 650;
+  text-transform: uppercase; letter-spacing: 0.04em; color: var(--ink-subtle);
+}
+.sv-check {
+  display: flex; align-items: center; gap: var(--space-3);
+  min-height: 40px; font-size: var(--text-base); cursor: pointer;
+}
+.sv-check input { width: 18px; height: 18px; accent-color: var(--accent); }

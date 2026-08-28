@@ -360,3 +360,96 @@ export function DemoSignIn({
     </div>
   );
 }
+
+/**
+ * A form that reports what happened.
+ *
+ * Every case-file tab saves the same way, and a save whose outcome is invisible
+ * is the reason people re-enter data "just in case". The result banner is part
+ * of the primitive rather than each page's problem, so no tab can quietly ship
+ * without one.
+ */
+export function Form({
+  action, children, submitLabel = 'Save', result, dangerous,
+}: {
+  action: (formData: FormData) => void | Promise<void>;
+  children: ReactNode;
+  submitLabel?: string;
+  /** Set from the page's search params after the action redirects. */
+  result?: { ok: boolean; message: string } | null;
+  dangerous?: boolean;
+}) {
+  return (
+    <form action={action} className="sv-form">
+      {result && (
+        <p className={cx('sv-form__result', result.ok ? 'sv-form__result--ok'
+                                                      : 'sv-form__result--error')}
+           role={result.ok ? 'status' : 'alert'}>
+          {result.message}
+        </p>
+      )}
+      {children}
+      <div className="sv-form__actions">
+        <button type="submit"
+                className={cx('sv-btn', 'sv-btn--md',
+                              dangerous ? 'sv-btn--danger' : 'sv-btn--primary')}>
+          {submitLabel}
+        </button>
+      </div>
+    </form>
+  );
+}
+
+export interface SummaryFigure {
+  label: string;
+  value: ReactNode;
+  tone?: 'neutral' | 'positive' | 'critical' | 'accent';
+  detail?: string;
+}
+
+/**
+ * The running totals along the bottom of a working screen.
+ *
+ * An adviser entering debts or expenditure needs to see the effect without
+ * scrolling or saving. Every figure here is computed from the rows above it
+ * rather than stored, so the bar cannot disagree with the list it summarises.
+ */
+export function SummaryBar({ figures }: { figures: readonly SummaryFigure[] }) {
+  return (
+    <div className="sv-summary" role="status" aria-label="Totals">
+      {figures.map((figure) => (
+        <div key={figure.label}
+             className={cx('sv-summary__cell', `sv-summary__cell--${figure.tone ?? 'neutral'}`)}>
+          <span className="sv-summary__label">{figure.label}</span>
+          <span className="sv-summary__value">{figure.value}</span>
+          {figure.detail && <span className="sv-summary__detail">{figure.detail}</span>}
+        </div>
+      ))}
+    </div>
+  );
+}
+
+/** The case file's tab strip. Scrolls rather than wraps on a narrow screen. */
+export function TabBar({
+  tabs, current, base,
+}: {
+  tabs: readonly { slug: string; label: string; count?: number }[];
+  current: string;
+  base: string;
+}) {
+  return (
+    <nav className="sv-tabs" aria-label="Case file">
+      {tabs.map((tab) => (
+        <a key={tab.slug}
+           href={tab.slug ? `${base}/${tab.slug}` : base}
+           className={cx('sv-tabs__tab', current === tab.slug && 'sv-tabs__tab--current')}
+           aria-current={current === tab.slug ? 'page' : undefined}>
+          {tab.label}
+          {tab.count != null && tab.count > 0 && (
+            <span className="sv-tabs__count">{tab.count}</span>
+          )}
+        </a>
+      ))}
+    </nav>
+  );
+}
