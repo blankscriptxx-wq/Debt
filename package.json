@@ -31,7 +31,8 @@
     "@solvenda/ai": "workspace:*",
     "@solvenda/workflow": "workspace:*",
     "@solvenda/comms": "workspace:*",
-    "playwright": "^1.49.1"
+    "playwright": "^1.49.1",
+    "@solvenda/integrations": "workspace:*"
   },
   "pnpm": {
     "onlyBuiltDependencies": [
