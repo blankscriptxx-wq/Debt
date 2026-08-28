@@ -330,6 +330,9 @@ Ordered by what would stop a launch.
 18. Production disaster recovery with a tested RTO and RPO.
 19. A real migration rehearsal against that firm's actual data, not a profile.
 20. Support processes, SLAs and an on-call rota matching what the plans promise.
+21. A runner for the workflow queue. The engine is durable and tested, but
+    nothing outside the test suite claims jobs, so in a deployed environment
+    delays never elapse and follow-ups never fire. See `docs/deployment.md`.
 
 ---
 
@@ -365,6 +368,8 @@ See `docs/future-advantage.md`.
 - Creditor and introducer portals are data model and permissions, not interfaces.
 - Cashiering, billing, complaints, retention enforcement and DSAR tooling are
   absent.
+- The workflow queue has no runner outside the tests, so workflow automation is
+  functional in principle and inert in a deployment.
 - No penetration test, no ISO or SOC audit, no certifications of any kind.
 - No customers. No signed contracts. No validation of the pricing.
 - Solvenda is not FCA authorised and does not give debt advice.
