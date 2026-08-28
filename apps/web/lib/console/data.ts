@@ -76,6 +76,8 @@ export interface CaseDetail {
   intelligence: CaseIntelligence;
   /** Every requirement the case type declares, with how well it is met. */
   evidence: ResolvedEvidence[];
+  /** The current statement, which advice cannot be recorded without. */
+  statementId: string | null;
   reference: string;
   clientName: string;
   clientId: string;
@@ -140,10 +142,11 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
   }));
 
   const statements = await db.execute<{
+    id: string;
     total_income_pence: string; total_expenditure_pence: string; surplus_pence: string;
     completed_at: string | null; status: string; version: number;
   }>(sql`
-    SELECT total_income_pence::text, total_expenditure_pence::text, surplus_pence::text,
+    SELECT id, total_income_pence::text, total_expenditure_pence::text, surplus_pence::text,
            completed_at::text, status, version
       FROM financial_statements WHERE case_id = ${caseId} ORDER BY version DESC LIMIT 2`);
 
@@ -266,6 +269,7 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
   return {
     intelligence,
     evidence: resolvedEvidence,
+    statementId: current?.id ?? null,
     reference: row.reference,
     clientName: row.client_name,
     clientId: row.client_id,

@@ -212,8 +212,8 @@ try {
   // The statement on this fixture rests on what the client said, so the spine
   // should be saying so before anything is touched.
   check('the spine reports the statement as declared, not verified',
-        await sectionState('Income and spending') === 'declared',
-        String(await sectionState('Income and spending')));
+        await sectionState('Income & expenditure') === 'declared',
+        String(await sectionState('Income & expenditure')));
   await page.fill('input[name="income:wages:amount"]', '1800');
   await page.selectOption('select[name="income:wages:frequency"]', 'monthly');
   await page.selectOption('select[name="income:wages:evidence"]', 'document');
@@ -247,8 +247,8 @@ try {
   // painted beside the work: acting on a requirement has to move the state the
   // rest of the platform reasons about, or it is decoration.
   await page.goto(`${BASE}${caseUrl}/debts`, { waitUntil: 'domcontentloaded' });
-  check('debts start out unevidenced', await sectionState('Debts') === 'missing',
-        String(await sectionState('Debts')));
+  check('debts start out unevidenced', await sectionState('Debts & creditors') === 'missing',
+        String(await sectionState('Debts & creditors')));
 
   await page.goto(`${BASE}${caseUrl}/verification`, { waitUntil: 'domcontentloaded' });
   // Requirements come from the case type, so this row exists without anyone
@@ -263,7 +263,7 @@ try {
   await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
 
   check('recording the evidence moves the section to verified',
-        await sectionState('Debts') === 'verified', String(await sectionState('Debts')));
+        await sectionState('Debts & creditors') === 'verified', String(await sectionState('Debts & creditors')));
 
   // And a verbal confirmation is not a document, however it is marked.
   await page.goto(`${BASE}${caseUrl}/verification`, { waitUntil: 'domcontentloaded' });
@@ -272,7 +272,7 @@ try {
   await row2.locator('button[type=submit]').click();
   await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
   check('a verbal confirmation counts as declared, not verified',
-        await sectionState('Debts') === 'declared', String(await sectionState('Debts')));
+        await sectionState('Debts & creditors') === 'declared', String(await sectionState('Debts & creditors')));
 
   // Put it back, so the next run starts where this one did — and so the
   // transition is shown to run in both directions rather than only forwards.
@@ -282,7 +282,77 @@ try {
   await row3.locator('button[type=submit]').click();
   await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
   check('withdrawing the evidence returns the section to missing',
-        await sectionState('Debts') === 'missing', String(await sectionState('Debts')));
+        await sectionState('Debts & creditors') === 'missing', String(await sectionState('Debts & creditors')));
+
+  // --- recording advice ----------------------------------------------------
+  // The regulated core of the case. The form exists to feed the advice module,
+  // so what is asserted here is that the module's rules reach the adviser: that
+  // it refuses what it should and says why in words they can act on.
+  await page.goto(`${BASE}${caseUrl}/advice`, { waitUntil: 'domcontentloaded' });
+  const solutions = await page.locator('input[name=recommended]').count();
+  check('every solution assessed is offered to recommend', solutions >= 3, `${solutions} solutions`);
+
+  await page.click('form.sv-form button[type=submit]');
+  await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
+  check('advice with no recommendation is refused',
+        (await page.locator('.sv-form__result').first().innerText()).includes('Choose the solution'));
+
+  // A recommendation with no rationale and no reasons must fail, and must name
+  // every problem at once rather than one at a time.
+  await page.goto(`${BASE}${caseUrl}/advice`, { waitUntil: 'domcontentloaded' });
+  const keys = await page.locator('input[name=recommended]')
+    .evaluateAll((els) => els.map((e) => e.value));
+  await page.locator(`input[name=recommended][value="${keys[0]}"]`).check();
+  await page.locator(`input[name="considered:${keys[1]}"]`).check();
+  // Where advice already stands, superseding validates its own reason first, so
+  // give it one: what is under test here is the decision's own rules.
+  if (await page.locator('textarea[name=supersedeReason]').count() > 0) {
+    await page.fill('textarea[name=supersedeReason]',
+                    'The client sent in figures that change the picture materially.');
+  }
+  await page.click('form.sv-form button[type=submit]');
+  await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
+  const refusal = await page.locator('.sv-form__result').first().innerText();
+  check('an unreasoned recommendation is refused, naming every problem',
+        refusal.includes('rationale of at least') && refusal.includes('too brief'),
+        refusal.slice(0, 120));
+
+  await page.goto(`${BASE}${caseUrl}/advice`, { waitUntil: 'domcontentloaded' });
+  await page.locator(`input[name=recommended][value="${keys[0]}"]`).check();
+  for (const k of keys.slice(1, 3)) {
+    await page.locator(`input[name="considered:${k}"]`).check();
+    await page.fill(`input[name="why-not:${k}"]`,
+                    `Not suitable: the client would not meet the ${k} requirements on these figures.`);
+  }
+  await page.fill('textarea[name=rationale]',
+    'A modest but sustainable surplus and several non-priority creditors, so an informal '
+    + 'arrangement keeps flexibility while the client\'s hours recover.');
+  await page.fill('textarea[name=risks]',
+    'Interest may not be frozen by every creditor\nCreditors may still enforce');
+  await page.selectOption('select[name=clientResponse]', 'accepted');
+  await page.fill('textarea[name=overrideReason]',
+    'Recommended despite the engine ruling it out because hours are expected to return within months.');
+  // Once advice stands, the form supersedes rather than adding a second — two
+  // live recommendations on one case is not a state anyone could act on. The
+  // suite runs repeatedly, so it takes whichever path the case is in.
+  const superseding = await page.locator('textarea[name=supersedeReason]').count() > 0;
+  if (superseding) {
+    await page.fill('textarea[name=supersedeReason]',
+      'The client provided a payslip showing hours have already returned to normal.');
+  }
+  await save(superseding ? 'advice superseded' : 'advice recorded');
+
+  const adviceBody = await page.locator('body').innerText();
+  check('the decision is listed with its adviser and response',
+        adviceBody.includes('Ruth Ellery') && adviceBody.includes('accepted'));
+
+  // Superseding keeps the original rather than editing it, which is the whole
+  // reason corrections take this path.
+  if (superseding) {
+    check('the superseded decision is kept, not overwritten',
+          await page.locator('.sv-badge', { hasText: 'Superseded' }).count() > 0,
+          `${await page.locator('.sv-badge', { hasText: 'Superseded' }).count()} superseded`);
+  }
 
   // --- does any of it reach the advice? -----------------------------------
   await page.goto(`${BASE}${caseUrl}`, { waitUntil: 'domcontentloaded' });

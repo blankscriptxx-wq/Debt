@@ -6,6 +6,7 @@ export * from './sfs/statement.js';
 export * from './advice/facts.js';
 export * from './advice/eligibility.js';
 export * from './advice/decision.js';
+export * from './advice/evaluation-record.js';
 export * from './intelligence/signals.js';
 export * from './intelligence/compose.js';
 export * from './commercial/enquiry.js';

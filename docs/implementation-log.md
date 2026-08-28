@@ -470,3 +470,56 @@ checks across seven suites; the case file suite grew from 36 to 43 and now
 asserts the transition the redesign rests on — recording evidence moves the
 section to verified, a verbal confirmation drops it to declared, and withdrawing
 it returns it to missing. Two consecutive full runs, identical results.
+
+## The trade's words, and the missing regulated action
+
+Two things followed from working the redesigned file rather than looking at it.
+
+**The labels were an overcorrection.** Avoiding HubSolv's interface does not
+mean avoiding the profession's vocabulary. "I&E", "SFS", "living arrangements"
+and "verification" are what UK debt advisers say; renaming them to "Income and
+spending" and "Vulnerability and checks" cost recognition and bought nothing.
+The grouping is ours — the client, the money, the advice, the contact — and the
+names are the trade's. The brand book already said this: *say what the software
+does, in the words a practitioner would use.*
+
+**Advice could not be recorded anywhere.** The section was read-only, on the
+argument that a form would be "a path around the guard rather than through it".
+That reasoning was wrong: the guard lives in `recordAdviceDecision`, and a form
+that calls it goes through the guard by definition. The consequence was that the
+regulated core of a debt advice case — the recommendation — existed as a table
+of decisions nobody could add to.
+
+Underneath it was a second gap. `recordAdviceDecision` requires an eligibility
+evaluation as the basis of the decision, and **nothing outside the tests ever
+wrote one**. `evaluateEligibility` is a pure function run on every page load to
+draw the comparison, which is right for a display and useless as a record: the
+rules, the trigger figures and the client's own figures all move, so "which
+solutions were open to this person when that advice was given" cannot be
+answered by running it again later. `saveEligibilityEvaluation` writes down the
+evaluation the adviser was actually looking at, and the decision points at that
+row.
+
+The recorder is deliberately plain: recommend one solution, tick every other
+that was genuinely on the table, give a reason for each rejection, a rationale
+of at least forty characters, the risks explained, the client's response, and an
+override reason where the engine ruled the recommendation out. Nothing posted
+from the browser decides anything — eligibility is recomputed server-side at
+submit, written down, and the decision recorded against it in one transaction,
+so what the adviser saw and what the file says they saw cannot come apart. Every
+refusal is shown verbatim rather than summarised, because the wording is what
+tells the adviser what to do: submitting an unreasoned recommendation returns
+*"a rationale of at least 40 characters is required · the reason for rejecting
+'iva' is too brief to be meaningful · 'dmp' did not meet has-surplus"*, all at
+once.
+
+Correcting advice supersedes it. While a decision stands the form replaces it
+rather than adding a second, requires a reason of at least twenty characters for
+what changed, and keeps the original wording exactly — which the database
+enforces independently: an `UPDATE` to a decision's substance is refused with
+*"the substance of an advice decision is immutable; record a superseding
+decision instead"*.
+
+**Counts.** 398 unit and integration tests, 1 skipped. 200 browser and API
+checks across seven suites; the case file suite is 49, covering the advice
+refusals, a recorded decision and a supersession that keeps its predecessor.
