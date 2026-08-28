@@ -146,12 +146,13 @@ export default function Page() {
         <div className="mk-container mk-narrow">
           <h2>What is not charged separately</h2>
           <p style={{ color: 'var(--ink-muted)' }}>
-            Adding a case type, changing a workflow, adding a custom field, adding a document
-            template, changing a permission or turning an AI capability on and off are all
+            Adding a case type, changing a workflow, changing a compliance rule, changing a
+            permission, setting retention policy or turning an AI capability on and off are all
             configuration a firm's own administrator does. Incumbent platforms in this market bill
             those as change requests, which is why a firm's process ends up shaped by what it can
             afford to ask for. We would rather charge more for the platform and nothing for
-            changing your mind.
+            changing your mind. (Configurable forms and custom fields are specified and not yet
+            built — they are on the list below rather than in this paragraph.)
           </p>
         </div>
       </section>

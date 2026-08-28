@@ -61,10 +61,12 @@ for the thing we most need the firm to do.
 in twice a year to look at one file should not be a line item, and a firm should
 never be choosing between visibility and cost.
 
-**Configuration changes.** Adding a case type, changing a workflow, adding a
-custom field or a document template, changing a permission, turning an AI
+**Configuration changes.** Adding a case type, changing a workflow, changing a
+compliance rule, changing a permission, setting retention policy, turning an AI
 capability on or off: all of it is administration a firm does itself, and none
-of it is billable. This is a deliberate reversal of the incumbent model, where
+of it is billable. (Configurable forms and custom fields belong in this list and
+are specified but not built — they are named in the limitations below rather
+than counted here.) This is a deliberate reversal of the incumbent model, where
 configuration arrives as a vendor change request. When a firm's process is
 shaped by what it can afford to ask for, the software is running the firm rather
 than the other way round.
@@ -140,6 +142,9 @@ twelve-month commitment at Enterprise scale.
   metering infrastructure (`usage_records`) is built and records against a
   reconstructable period, so the allowances can be corrected from evidence
   rather than re-guessed.
+- **Configurable forms and custom fields are not built.** They belong to the
+  no-billable-change-requests promise above and are specified rather than
+  delivered.
 - **Billing is not built.** Plans, subscriptions, overrides and usage records
   are all real configuration and real data. There is no payment collection, no
   invoice generation and no accounting integration. That is a first-firm
