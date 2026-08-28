@@ -45,6 +45,26 @@ export const AUDIT_ACTIONS = {
   'sfs.statement.superseded': { severity: 'regulated' },
   'debt.created': { severity: 'notable' },
   'debt.updated': { severity: 'notable' },
+  'debt.removed': { severity: 'notable' },
+
+  // The case file. Household composition and assets are notable rather than
+  // info because both change what the client is eligible for: household size
+  // bands the SFS trigger figures, and asset value decides whether a DRO is
+  // available at all.
+  'household.member.recorded': { severity: 'notable' },
+  'household.member.removed': { severity: 'notable' },
+  'employment.recorded': { severity: 'notable' },
+  'employment.updated': { severity: 'info' },
+  'asset.recorded': { severity: 'notable' },
+  'asset.updated': { severity: 'notable' },
+  'asset.removed': { severity: 'notable' },
+  'appointment.scheduled': { severity: 'info' },
+  'appointment.outcome.recorded': { severity: 'info' },
+  'appointment.cancelled': { severity: 'info' },
+  'verification.recorded': { severity: 'notable' },
+  // A waived check is someone deciding evidence is not needed. That is a
+  // compliance decision and is recorded as one.
+  'verification.waived': { severity: 'security' },
   'affordability.assessed': { severity: 'regulated' },
   'eligibility.evaluated': { severity: 'regulated' },
   'advice.recommendation.generated': { severity: 'regulated' },

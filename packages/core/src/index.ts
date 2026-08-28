@@ -9,3 +9,4 @@ export * from './advice/decision.js';
 export * from './intelligence/signals.js';
 export * from './intelligence/compose.js';
 export * from './commercial/enquiry.js';
+export * from './case-file/index.js';
