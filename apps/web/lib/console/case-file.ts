@@ -1,7 +1,7 @@
 import { sql, type Database } from '@solvenda/db';
 import {
   listAppointments, listAssets, listEmployment, listHouseholdMembers,
-  listVerificationItems, totalsFor,
+  listVerificationItems, totalsFor, type EvidenceRecords,
 } from '@solvenda/core';
 
 /**
@@ -111,3 +111,64 @@ export async function loadDebts(db: Database, caseId: string) {
 }
 
 export { listAppointments, listAssets, listEmployment, listHouseholdMembers, listVerificationItems };
+
+/**
+ * Gathers the records evidence state is resolved from.
+ *
+ * Kept beside the other case file loaders rather than inside `loadCaseDetail`
+ * because both the spine and Case Intelligence need it, and they must not be
+ * allowed to answer "what is missing" differently.
+ */
+export async function loadEvidenceRecords(
+  db: Database, caseId: string, clientId: string,
+): Promise<EvidenceRecords> {
+  const [items, consents, vulnerability, statement] = await Promise.all([
+    db.execute<{ id: string; requirement_key: string; status: string;
+                 method: string | null; expires_on: string | null }>(sql`
+      SELECT id, requirement_key, status, method, expires_on::text
+        FROM verification_items WHERE case_id = ${caseId}`),
+    db.execute<{ id: string; purpose: string; granted: boolean; withdrawn_at: string | null }>(sql`
+      SELECT id, purpose, granted, withdrawn_at::text
+        FROM consents WHERE client_id = ${clientId}`),
+    db.execute<{ id: string | null }>(sql`
+      SELECT id FROM vulnerability_records
+       WHERE client_id = ${clientId} AND status = 'active'
+       ORDER BY created_at DESC LIMIT 1`),
+    db.execute<{ id: string; completed_at: string | null;
+                 line_count: string; evidenced_count: string }>(sql`
+      SELECT s.id, s.completed_at::text,
+             count(l.id)::text AS line_count,
+             count(l.id) FILTER (
+               WHERE l.evidence_status IN ('document','open-banking')
+             )::text AS evidenced_count
+        FROM financial_statements s
+        LEFT JOIN financial_statement_lines l ON l.statement_id = s.id
+       WHERE s.case_id = ${caseId} AND s.status = 'current'
+       GROUP BY s.id, s.completed_at
+       ORDER BY s.id LIMIT 1`),
+  ]);
+
+  const s = statement.rows[0];
+  return {
+    verificationItems: items.rows.map((v) => ({
+      id: v.id,
+      requirementKey: v.requirement_key,
+      status: v.status as EvidenceRecords['verificationItems'][number]['status'],
+      method: v.method,
+      expiresOn: v.expires_on,
+    })),
+    consents: consents.rows.map((c) => ({
+      id: c.id, purpose: c.purpose, granted: c.granted, withdrawnAt: c.withdrawn_at,
+    })),
+    // An assessment recorded as "no indicators identified" is still an
+    // assessment, and is what the record's presence means here.
+    vulnerability: {
+      assessed: vulnerability.rows.length > 0,
+      recordId: vulnerability.rows[0]?.id ?? null,
+    },
+    statement: s
+      ? { id: s.id, completedAt: s.completed_at,
+          lineCount: Number(s.line_count), evidencedLineCount: Number(s.evidenced_count) }
+      : null,
+  };
+}

@@ -340,10 +340,12 @@ async function main() {
           await db.execute(sql`
             INSERT INTO financial_statement_lines (statement_id, section, category, amount_pence,
                                                    entered_amount_pence, entered_frequency, source,
-                                                   observed_amount_pence, observed_confidence)
+                                                   observed_amount_pence, observed_confidence,
+                                                   evidence_status)
             VALUES (${statement.rows[0]!.id}, ${line.section}, ${line.category}, ${line.amount},
                     ${line.amount}, 'monthly', ${line.source ?? 'declared'},
-                    ${line.observed ?? null}, ${line.confidence ?? null})`);
+                    ${line.observed ?? null}, ${line.confidence ?? null},
+                    ${line.evidence ?? scenario.statement.evidence ?? 'none'})`);
         }
 
         await db.execute(sql`
@@ -363,6 +365,15 @@ async function main() {
                                 statement_text, granted, captured_via, captured_by)
           VALUES (${clientId}, ${caseId}, ${consent}, 'consent', 'v1',
                   'Recorded during onboarding.', true, 'telephone', ${adviserId})`);
+      }
+
+      for (const v of scenario.verifications ?? []) {
+        await db.execute(sql`
+          INSERT INTO verification_items (case_id, client_id, requirement_key, category,
+                                          status, method, verified_by, verified_at)
+          VALUES (${caseId}, ${clientId}, ${v.key}, ${v.category},
+                  ${v.status ?? 'verified'}, ${v.method}, ${adviserId}, now())
+          ON CONFLICT (case_id, requirement_key) DO NOTHING`);
       }
 
       if (scenario.vulnerability) {
@@ -463,10 +474,20 @@ interface Scenario {
   statement?: {
     income: number; expenditure: number; completedAt: string;
     lines: { section: 'income' | 'expenditure' | 'asset'; category: string; amount: number;
-             source?: string; observed?: number; confidence?: number }[];
+             source?: string; observed?: number; confidence?: number;
+             evidence?: string }[];
+    /** Applied to any line that does not set its own. */
+    evidence?: string;
   };
   sustainablePayment?: number;
   consents?: string[];
+  /**
+   * Verification items, which is what most evidence actually is. Only a consent
+   * belongs in `consents`: "identity verified" and "debts captured" are facts
+   * about the case, and recording them as consents made the product look
+   * complete without any of it being true.
+   */
+  verifications?: { key: string; category: string; method: string; status?: string }[];
   vulnerability?: { driver: string; indicators: string[]; severity: string; special: boolean;
                     detail: string; support: string[] };
   tasks?: { title: string; detail?: string; priority: string; dueAt: string }[];
@@ -596,6 +617,7 @@ const SCENARIOS: Scenario[] = [
     ],
     statement: {
       income: 198_000, expenditure: 176_000, completedAt: daysAgo(400),
+      evidence: 'document',
       lines: [
         { section: 'income', category: 'earnings', amount: 168_000 },
         { section: 'income', category: 'child-benefit', amount: 30_000 },
@@ -608,8 +630,13 @@ const SCENARIOS: Scenario[] = [
       ],
     },
     sustainablePayment: 22_000,
-    consents: ['consent.processing', 'identity.verified', 'vulnerability.assessed',
-               'sfs.complete', 'debts.captured', 'payment.mandate'],
+    consents: ['consent.processing'],
+    verifications: [
+      { key: 'identity.verified', category: 'identity', method: 'electronic-check' },
+      { key: 'vulnerability.assessed', category: 'vulnerability', method: 'other' },
+      { key: 'debts.captured', category: 'debt', method: 'credit-file' },
+      { key: 'payment.mandate', category: 'other', method: 'document' },
+    ],
     tasks: [
       { title: 'Annual review is overdue', priority: 'high', dueAt: daysAgo(14),
         detail: 'The review fell due six weeks ago.' },
@@ -639,6 +666,7 @@ const SCENARIOS: Scenario[] = [
     ],
     statement: {
       income: 312_000, expenditure: 246_000, completedAt: daysAgo(4),
+      evidence: 'open-banking',
       lines: [
         { section: 'income', category: 'self-employment', amount: 312_000 },
         { section: 'expenditure', category: 'mortgage', amount: 118_000 },
@@ -649,8 +677,14 @@ const SCENARIOS: Scenario[] = [
       ],
     },
     sustainablePayment: 60_000,
-    consents: ['consent.processing', 'identity.verified', 'vulnerability.assessed',
-               'sfs.complete', 'debts.captured'],
+    consents: ['consent.processing'],
+    verifications: [
+      { key: 'identity.verified', category: 'identity', method: 'document' },
+      { key: 'vulnerability.assessed', category: 'vulnerability', method: 'other' },
+      // Confirmed on the telephone, which is a record of what the client said
+      // and not evidence. The spine shows this as declared, not verified.
+      { key: 'debts.captured', category: 'debt', method: 'verbal' },
+    ],
     tasks: [
       { title: 'Confirm HMRC balance before the proposal', priority: 'normal', dueAt: daysAhead(3) },
     ],
@@ -674,6 +708,7 @@ const SCENARIOS: Scenario[] = [
     ],
     statement: {
       income: 118_000, expenditure: 131_000, completedAt: daysAgo(10),
+      evidence: 'verbal',
       lines: [
         { section: 'income', category: 'benefits', amount: 118_000 },
         { section: 'expenditure', category: 'rent', amount: 62_000 },
@@ -683,7 +718,13 @@ const SCENARIOS: Scenario[] = [
       ],
     },
     sustainablePayment: 0,
-    consents: ['consent.processing', 'identity.verified', 'vulnerability.assessed'],
+    consents: ['consent.processing'],
+    verifications: [
+      { key: 'identity.verified', category: 'identity', method: 'document' },
+      // The debt list is still outstanding on this case. A demonstration where
+      // every file is complete never shows the product doing its job.
+      { key: 'debts.captured', category: 'debt', method: 'other', status: 'outstanding' },
+    ],
     vulnerability: {
       driver: 'health', indicators: ['long-term-condition', 'reduced-capacity-to-work'],
       severity: 'significant', special: true,
@@ -718,8 +759,9 @@ const SCENARIOS: Scenario[] = [
     ],
     statement: {
       income: 142_000, expenditure: 138_500, completedAt: daysAgo(2),
+      evidence: 'verbal',
       lines: [
-        { section: 'income', category: 'earnings', amount: 142_000 },
+        { section: 'income', category: 'earnings', amount: 142_000, evidence: 'document' },
         { section: 'expenditure', category: 'rent', amount: 72_000 },
         { section: 'expenditure', category: 'food-and-housekeeping', amount: 28_000 },
         { section: 'expenditure', category: 'travel', amount: 14_000 },
@@ -728,8 +770,12 @@ const SCENARIOS: Scenario[] = [
       ],
     },
     sustainablePayment: 3_500,
-    consents: ['consent.processing', 'identity.verified', 'vulnerability.assessed',
-               'sfs.complete', 'debts.captured'],
+    consents: ['consent.processing'],
+    verifications: [
+      { key: 'identity.verified', category: 'identity', method: 'document' },
+      { key: 'vulnerability.assessed', category: 'vulnerability', method: 'other' },
+      { key: 'debts.captured', category: 'debt', method: 'document' },
+    ],
     communications: [
       { channel: 'portal', direction: 'inbound',
         body: 'Uploaded my payslips and bank statements.', at: daysAgo(2) },

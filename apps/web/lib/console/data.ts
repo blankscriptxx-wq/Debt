@@ -1,8 +1,10 @@
 import { sql, type Database } from '@solvenda/db';
 import {
   composeCaseIntelligence, CASE_TYPE_TEMPLATES, DEFAULT_THRESHOLD_CONFIG,
-  parseCaseTypeDefinition, type CaseIntelligence, type CaseSnapshot, type DebtSnapshot,
+  parseCaseTypeDefinition, resolveEvidenceState, evidenceMap,
+  type CaseIntelligence, type CaseSnapshot, type DebtSnapshot, type ResolvedEvidence,
 } from '@solvenda/core';
+import { loadEvidenceRecords } from './case-file.js';
 import { pendingProposals } from '@solvenda/ai';
 import { caseTimeline, engagementSummary, type TimelineEntry } from '@solvenda/comms';
 
@@ -72,6 +74,8 @@ export async function listCases(db: Database, options: {
 
 export interface CaseDetail {
   intelligence: CaseIntelligence;
+  /** Every requirement the case type declares, with how well it is met. */
+  evidence: ResolvedEvidence[];
   reference: string;
   clientName: string;
   clientId: string;
@@ -157,12 +161,6 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
            max(severity) AS severity
       FROM vulnerability_records WHERE client_id = ${row.client_id} AND status = 'active'`);
 
-  const evidenceRows = await db.execute<{ key: string }>(sql`
-    SELECT DISTINCT purpose AS key FROM consents
-     WHERE client_id = ${row.client_id} AND granted AND withdrawn_at IS NULL`);
-  const evidence: Record<string, boolean> = {};
-  for (const e of evidenceRows.rows) evidence[e.key] = true;
-
   const taskRows = await db.execute<{
     id: string; title: string; due_at: string | null; status: string;
     priority: string; assigned_to: string | null;
@@ -188,6 +186,14 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
   const caseType = caseTypeRow.rows[0]
     ? parseCaseTypeDefinition(caseTypeRow.rows[0].definition)
     : CASE_TYPE_TEMPLATES.find((t) => t.key === row.case_type_key) ?? CASE_TYPE_TEMPLATES[0]!;
+
+  // Evidence is resolved from the case's own records against the requirements
+  // the case type declares. It used to be read from the consents table alone,
+  // which meant "identity verified" and "statement complete" could only be true
+  // if someone wrote them as consents — and only the seed ever did.
+  const evidenceRecords = await loadEvidenceRecords(db, caseId, row.client_id);
+  const resolvedEvidence = resolveEvidenceState(caseType, row.stage, evidenceRecords);
+  const evidence = evidenceMap(resolvedEvidence);
 
   const snapshot: CaseSnapshot = {
     caseId: row.id,
@@ -259,6 +265,7 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
 
   return {
     intelligence,
+    evidence: resolvedEvidence,
     reference: row.reference,
     clientName: row.client_name,
     clientId: row.client_id,
