@@ -71,6 +71,21 @@ PgBouncer in transaction mode; the application's transaction-scoped work is fine
 through it, but DDL is safer direct. `PGHOST` for the running app can stay
 pooled.
 
+Verified against a provisioned Neon database: 21 migrations applied, 66 of 66
+tables with row-level security enabled *and* forced, the registry showing 46
+tenant / 10 platform / 10 global, and the audit chain verifying across every
+event. The isolation properties were re-checked there rather than assumed to
+carry over from local Postgres — the application role sees nothing with no
+tenant bound, sees only its own tenant when bound, is refused platform tables
+outright, and gains nothing by setting the platform GUC itself, because
+`app.is_platform_context()` requires the role as well as the flag.
+
+A note for anyone doing this from a restricted network: where Postgres on 5432
+is unreachable, Neon's SQL-over-HTTPS endpoint on 443 works for migrations and
+loading. Batches sent that way need the `Neon-Batch-Isolation-Level` header, or
+each statement runs in its own transaction and a transaction-local GUC set by
+the first never reaches the rest.
+
 ## Environment variables
 
 Set per project. `.env.example` is the contract.
