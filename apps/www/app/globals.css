@@ -21,7 +21,12 @@ body { font-size: var(--text-md); line-height: var(--leading-relaxed); }
 }
 .mk-header__inner {
   display: flex; align-items: center; justify-content: space-between;
-  gap: var(--space-5); padding: var(--space-4) 0;
+  gap: var(--space-5);
+  /* padding-block, not the shorthand: this element also carries .mk-container,
+   * and `padding: x 0` silently wiped the container's horizontal padding, so
+   * the header sat flush to the viewport edge at any width up to 1120px while
+   * every section below it was inset. */
+  padding-block: var(--space-4);
 }
 .mk-logo {
   display: flex; align-items: center; gap: var(--space-2);
@@ -32,7 +37,20 @@ body { font-size: var(--text-md); line-height: var(--leading-relaxed); }
 .mk-nav { display: flex; gap: var(--space-5); align-items: center; }
 .mk-nav a { color: var(--ink-muted); text-decoration: none; font-size: var(--text-base); }
 .mk-nav a:hover { color: var(--ink); }
-@media (max-width: 800px) { .mk-nav { display: none; } }
+/* Below 800px the nav becomes a horizontally scrollable strip rather than
+ * disappearing. Hiding it left the footer as the only way to reach any page on
+ * a phone, which is most of the traffic a site like this gets. */
+@media (max-width: 800px) {
+  .mk-header__inner { flex-wrap: wrap; row-gap: var(--space-3); }
+  .mk-nav {
+    order: 3; width: 100%; overflow-x: auto; gap: var(--space-4);
+    padding-bottom: var(--space-1); -webkit-overflow-scrolling: touch;
+    scrollbar-width: none;
+  }
+  .mk-nav::-webkit-scrollbar { display: none; }
+  .mk-nav a { white-space: nowrap; padding: var(--space-2) 0; min-height: 44px;
+              display: flex; align-items: center; }
+}
 
 .mk-hero { padding: var(--space-8) 0 var(--space-7); }
 .mk-hero h1 {

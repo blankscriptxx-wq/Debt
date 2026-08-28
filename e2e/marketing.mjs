@@ -24,7 +24,10 @@ const browser = await chromium.launch({
 // A distinct forwarded address per run. The contact form throttles per source,
 // so a fixed address would make this suite pass once an hour; a real deployment
 // sets this header at the proxy and must not trust a client-supplied one.
-const CLIENT_IP = `198.51.100.${1 + (Date.now() % 200)}`;
+// Random rather than time-derived: `Date.now() % 200` cycles, and two runs
+// minutes apart collided often enough to look like a real failure.
+const octets = () => `${1 + Math.floor(Math.random() * 254)}.${1 + Math.floor(Math.random() * 254)}`;
+const CLIENT_IP = `198.51.${octets()}`;
 const page = await browser.newPage({
   viewport: { width: 1440, height: 960 },
   extraHTTPHeaders: { 'x-forwarded-for': CLIENT_IP },
@@ -34,7 +37,12 @@ const errors = [];
 const missing = [];
 page.on('pageerror', (e) => errors.push(String(e)));
 page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-page.on('response', (r) => { if (r.status() === 404) missing.push(new URL(r.url()).pathname); });
+page.on('response', (r) => {
+  if (r.status() !== 404) return;
+  const { pathname } = new URL(r.url());
+  missing.push(pathname);
+  errors.push(`404 ${pathname}`);
+});
 
 const marker = `e2e-${Date.now()}`;
 
@@ -123,7 +131,7 @@ try {
   // this asserts the limit without depositing five more rows.
   const flooder = await browser.newPage({
     viewport: { width: 1440, height: 960 },
-    extraHTTPHeaders: { 'x-forwarded-for': `203.0.113.${1 + (Date.now() % 200)}` },
+    extraHTTPHeaders: { 'x-forwarded-for': `203.0.${octets()}` },
   });
   let throttled = '';
   for (let i = 0; i < 6; i += 1) {
