@@ -16,6 +16,7 @@ export function ControlShell({
     { href: '/plans', label: 'Plans', key: 'plans' },
     { href: '/providers', label: 'Integrations', key: 'providers' },
     { href: '/capabilities', label: 'AI capabilities', key: 'capabilities' },
+    { href: '/enquiries', label: 'Enquiries', key: 'enquiries' },
     { href: '/access', label: 'Support access', key: 'access' },
     { href: '/activity', label: 'Security activity', key: 'activity' },
   ];

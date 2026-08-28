@@ -1,0 +1,166 @@
+@import '@solvenda/ui/tokens.css';
+
+/*
+ * The marketing site.
+ *
+ * The audience is a compliance officer, an operations director and a
+ * technically literate founder at a firm that already has software and is not
+ * enjoying it. They have read a lot of vendor copy and trust none of it. So:
+ * specific mechanisms rather than adjectives, no claimed certifications,
+ * partnerships, customers or awards, and honest labelling of what is not built.
+ */
+
+body { font-size: var(--text-md); line-height: var(--leading-relaxed); }
+
+.mk-container { max-width: 1120px; margin: 0 auto; padding: 0 var(--space-5); }
+.mk-narrow { max-width: 720px; }
+
+.mk-header {
+  position: sticky; top: 0; z-index: 20; background: var(--surface);
+  border-bottom: 1px solid var(--border);
+}
+.mk-header__inner {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-5); padding: var(--space-4) 0;
+}
+.mk-logo {
+  display: flex; align-items: center; gap: var(--space-2);
+  font-weight: 650; font-size: var(--text-lg); letter-spacing: -0.03em;
+  color: var(--ink); text-decoration: none;
+}
+.mk-logo svg { color: var(--accent); }
+.mk-nav { display: flex; gap: var(--space-5); align-items: center; }
+.mk-nav a { color: var(--ink-muted); text-decoration: none; font-size: var(--text-base); }
+.mk-nav a:hover { color: var(--ink); }
+@media (max-width: 800px) { .mk-nav { display: none; } }
+
+.mk-hero { padding: var(--space-8) 0 var(--space-7); }
+.mk-hero h1 {
+  font-size: clamp(2rem, 5vw, 3.25rem); line-height: 1.08; letter-spacing: -0.035em;
+  margin: 0 0 var(--space-4); font-weight: 620; max-width: 16ch;
+}
+.mk-hero p { font-size: var(--text-lg); color: var(--ink-muted); max-width: 58ch;
+             margin: 0 0 var(--space-5); }
+.mk-eyebrow {
+  font-size: var(--text-sm); font-weight: 600; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--accent); margin: 0 0 var(--space-3);
+}
+.mk-actions { display: flex; gap: var(--space-3); flex-wrap: wrap; }
+.mk-btn {
+  display: inline-flex; align-items: center; padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-md); font-weight: 550; text-decoration: none;
+  border: 1px solid transparent; min-height: 48px;
+}
+.mk-btn--primary { background: var(--accent); color: var(--accent-ink); }
+.mk-btn--secondary { border-color: var(--border-strong); color: var(--ink); }
+
+.mk-section { padding: var(--space-7) 0; border-top: 1px solid var(--border); }
+.mk-section h2 {
+  font-size: clamp(1.5rem, 3vw, 2.0625rem); letter-spacing: -0.025em;
+  margin: 0 0 var(--space-3); font-weight: 620;
+}
+.mk-section__lede { font-size: var(--text-lg); color: var(--ink-muted);
+                    max-width: 62ch; margin: 0 0 var(--space-6); }
+
+.mk-grid { display: grid; gap: var(--space-5);
+           grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); }
+.mk-card {
+  padding: var(--space-5); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--surface);
+}
+.mk-card h3 { margin: 0 0 var(--space-2); font-size: var(--text-md); font-weight: 620; }
+.mk-card p { margin: 0; color: var(--ink-muted); font-size: var(--text-base); }
+
+.mk-claim {
+  border-left: 3px solid var(--accent); padding: var(--space-2) 0 var(--space-2) var(--space-5);
+  margin: var(--space-5) 0;
+}
+.mk-claim__what { font-weight: 600; margin: 0 0 var(--space-1); }
+.mk-claim__how { margin: 0; color: var(--ink-muted); font-size: var(--text-base); }
+
+.mk-honest {
+  padding: var(--space-5); border: 1px dashed var(--border-strong);
+  border-radius: var(--radius-lg); background: var(--surface-raised);
+}
+.mk-honest h3 { margin: 0 0 var(--space-3); font-size: var(--text-md); }
+.mk-honest ul { margin: 0; padding-left: 1.2rem; color: var(--ink-muted); }
+.mk-honest li { margin-bottom: var(--space-2); }
+
+.mk-footer {
+  border-top: 1px solid var(--border); padding: var(--space-6) 0;
+  color: var(--ink-subtle); font-size: var(--text-base);
+}
+.mk-footer__grid { display: grid; gap: var(--space-5);
+                   grid-template-columns: repeat(auto-fit, minmax(180px, 1fr)); }
+.mk-footer h4 { font-size: var(--text-sm); text-transform: uppercase;
+                letter-spacing: 0.06em; color: var(--ink-muted); margin: 0 0 var(--space-3); }
+.mk-footer a { display: block; color: var(--ink-muted); text-decoration: none;
+               margin-bottom: var(--space-2); }
+.mk-footer a:hover { color: var(--ink); }
+
+/* Pricing.
+ *
+ * Figures shown here are the same plan records the platform is seeded with,
+ * restated in prose. minmax(0, 1fr) rather than 1fr: a bare 1fr track is
+ * min-content, so a wide cell pushes the page wider than a phone viewport.
+ */
+.mk-plans { display: grid; gap: var(--space-5);
+            grid-template-columns: repeat(auto-fit, minmax(min(100%, 280px), 1fr)); }
+.mk-plan {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  padding: var(--space-5); background: var(--surface);
+  display: flex; flex-direction: column;
+}
+.mk-plan--featured { border-color: var(--accent); }
+.mk-plan h3 { margin: 0 0 var(--space-1); font-size: var(--text-md); font-weight: 620; }
+.mk-plan__price { font-size: var(--text-xl); font-weight: 640; margin: var(--space-3) 0 0;
+                  letter-spacing: -0.01em; }
+.mk-plan__unit { color: var(--ink-muted); font-size: var(--text-sm); margin: 0 0 var(--space-4); }
+.mk-plan__desc { color: var(--ink-muted); font-size: var(--text-base); margin: 0; }
+.mk-plan ul { margin: var(--space-4) 0 0; padding-left: 1.1rem;
+              color: var(--ink-muted); font-size: var(--text-base); }
+.mk-plan li { margin-bottom: var(--space-2); }
+.mk-plan__terms { margin-top: auto; padding-top: var(--space-4);
+                  color: var(--ink-subtle); font-size: var(--text-sm); }
+
+.mk-scroll { overflow-x: auto; }
+.mk-table { width: 100%; border-collapse: collapse; font-size: var(--text-base); }
+.mk-table th, .mk-table td { text-align: left; padding: var(--space-3) var(--space-4);
+                             border-bottom: 1px solid var(--border); white-space: nowrap; }
+.mk-table th { font-weight: 600; color: var(--ink); font-size: var(--text-sm);
+               text-transform: uppercase; letter-spacing: 0.04em; }
+.mk-table td { color: var(--ink-muted); }
+.mk-table td:first-child { color: var(--ink); }
+
+.mk-contact { display: grid; gap: var(--space-5);
+              grid-template-columns: repeat(auto-fit, minmax(min(100%, 300px), 1fr)); }
+.mk-contact__block { border: 1px solid var(--border); border-radius: var(--radius-lg);
+                     padding: var(--space-5); background: var(--surface); }
+.mk-contact__block h3 { margin: 0 0 var(--space-2); font-size: var(--text-md); }
+.mk-contact__block p { margin: 0; color: var(--ink-muted); font-size: var(--text-base); }
+.mk-contact__block a { color: var(--accent); }
+
+/* The contact form. Labels above fields, 44px targets, visible focus ring —
+ * the same accessibility floor the product portals are held to. */
+.mk-form { display: flex; flex-direction: column; gap: var(--space-2); }
+.mk-form label { font-size: var(--text-sm); font-weight: 600; margin-top: var(--space-3); }
+.mk-form input, .mk-form select, .mk-form textarea {
+  font: inherit; font-size: var(--text-base); color: var(--ink);
+  background: var(--surface); border: 1px solid var(--border-strong);
+  border-radius: var(--radius-md); padding: var(--space-3); min-height: 44px;
+  width: 100%; max-width: 100%; box-sizing: border-box;
+}
+.mk-form textarea { min-height: 140px; resize: vertical; }
+.mk-form input:focus-visible, .mk-form select:focus-visible, .mk-form textarea:focus-visible {
+  outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent);
+}
+.mk-form button { margin-top: var(--space-5); align-self: flex-start; }
+.mk-form__error {
+  margin: 0 0 var(--space-3); padding: var(--space-3) var(--space-4);
+  border: 1px solid var(--critical); border-radius: var(--radius-md);
+  background: var(--critical-subtle); color: var(--ink); font-size: var(--text-base);
+}
+.mk-form__note { margin: var(--space-4) 0 0; color: var(--ink-subtle); font-size: var(--text-sm); }
+.mk-honeypot { position: absolute; left: -9999px; width: 1px; height: 1px; overflow: hidden; }
+
+html, body { max-width: 100%; overflow-x: hidden; }

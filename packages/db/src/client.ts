@@ -171,6 +171,34 @@ export async function withPlatform<T>(
 }
 
 /**
+ * The unauthenticated path, for the public contact form and nothing else.
+ *
+ * Connects as the ordinary application role but binds no tenant, so
+ * `app.current_tenant_id()` is NULL and every tenant table returns zero rows
+ * and refuses every write - the same fail-closed behaviour a developer gets
+ * for forgetting to open a tenant transaction. The only thing this connection
+ * can do is insert into `platform_enquiries`, because that is the only table
+ * the application role holds an unauthenticated grant on.
+ */
+export async function withPublic<T>(fn: (db: Database) => Promise<T>): Promise<T> {
+  const client = await poolFor('app', config()).connect();
+  try {
+    await client.query('BEGIN');
+    await client.query(`SET LOCAL statement_timeout = ${config().statementTimeoutMs}`);
+    // No GUCs are set at all: no tenant, no user, no platform context. There
+    // is nothing to bind, and binding nothing is exactly the point.
+    const result = await fn(drizzle(client, { schema }));
+    await client.query('COMMIT');
+    return result;
+  } catch (error) {
+    await client.query('ROLLBACK').catch(() => undefined);
+    throw error;
+  } finally {
+    client.release();
+  }
+}
+
+/**
  * Owner-role access, for migrations and schema conformance checks only.
  * Deliberately not exported from the package index.
  */

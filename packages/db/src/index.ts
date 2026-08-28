@@ -1,6 +1,7 @@
 export {
   withTenant,
   withPlatform,
+  withPublic,
   configureDatabase,
   closeDatabase,
   sql,

@@ -227,3 +227,31 @@ export async function listCapabilities(operatorId: string): Promise<CapabilityRo
     }));
   });
 }
+
+export interface EnquiryRow {
+  id: string; submittedAt: string; name: string; organisation: string;
+  email: string; message: string; enquiryType: string; sourcePath: string;
+  status: string;
+}
+
+/**
+ * The marketing site's contact form writes through the unauthenticated database
+ * path, which holds INSERT and no SELECT. This is the only way anything reads
+ * those rows back: a platform operator, under a live access grant, audited like
+ * every other operator action.
+ */
+export async function listEnquiries(operatorId: string): Promise<EnquiryRow[]> {
+  return platform(operatorId, 'triage public enquiries', async (db) => {
+    const res = await db.execute<Record<string, string>>(sql`
+      SELECT id, submitted_at::text, name, organisation, email, message,
+             enquiry_type, source_path, status
+        FROM platform_enquiries
+       ORDER BY submitted_at DESC
+       LIMIT 200`);
+    return res.rows.map((r) => ({
+      id: r['id']!, submittedAt: r['submitted_at']!, name: r['name']!,
+      organisation: r['organisation']!, email: r['email']!, message: r['message']!,
+      enquiryType: r['enquiry_type']!, sourcePath: r['source_path']!, status: r['status']!,
+    }));
+  });
+}

@@ -6,6 +6,7 @@ const r = (p: string) => fileURLToPath(new URL(p, import.meta.url));
 export default defineConfig({
   resolve: {
     alias: {
+      '@solvenda/db/plans': r('./packages/db/src/plans.ts'),
       '@solvenda/db': r('./packages/db/src/index.ts'),
       '@solvenda/testing': r('./packages/testing/src/index.ts'),
       '@solvenda/core': r('./packages/core/src/index.ts'),
