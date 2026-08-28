@@ -14,10 +14,10 @@ making the current generation of debt-advice CRMs feel outdated.
 
 What exists now is a working multi-tenant platform: one application serving the
 marketing site, the adviser console, the client portal and platform
-administration, eleven packages, 71 tables across 22 immutable migrations, 371
-unit and integration tests against real Postgres, and 187 browser and API checks
-driving real running servers. It is a deep, working vertical slice on enterprise foundations, not a
-demonstration with a database behind it — but it is not a product a regulated
+administration, eleven packages, 71 tables across 22 immutable migrations, 398
+unit and integration tests against real Postgres, and 194 browser and API checks
+driving real running servers. It is a deep, working vertical slice on enterprise
+foundations, not a demonstration with a database behind it — but it is not a product a regulated
 firm could be onboarded onto tomorrow, and section 12 says exactly why.
 
 The single organising idea: **the compliance evidence and the case intelligence
@@ -130,7 +130,7 @@ tenant, append-only at trigger level, with a verifier that locates a break.
 | Communications | Built; every channel is a simulator |
 | Compliance checks | Built |
 | QA | Capability built; reviewer queue and calibration partial |
-| Adviser case file: eleven tabs of data entry over the model | Built |
+| Adviser case file: evidence spine over eleven working sections | Built |
 | Analytics and dashboards | Built |
 | Migration framework | Built |
 | Public API, webhooks, API keys | Built |

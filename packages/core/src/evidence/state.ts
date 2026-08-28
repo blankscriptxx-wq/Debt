@@ -122,7 +122,15 @@ function resolveOne(
   };
 
   const item = records.verificationItems.find((v) => v.requirementKey === requirement.key);
-  if (item) {
+
+  // A verification item that has been acted on is the answer. One that is still
+  // outstanding is only a note that somebody should look, so it must not
+  // override a consent or a statement that already answers the question —
+  // otherwise opening a case, which creates the outstanding rows, would appear
+  // to erase evidence the case already had.
+  const acted = item && item.status !== 'outstanding' && item.status !== 'rejected';
+
+  if (item && acted) {
     const source = { type: 'verification_item', id: item.id };
     switch (item.status) {
       case 'waived':
@@ -143,22 +151,30 @@ function resolveOne(
           return { ...base, state: 'declared', source,
                    because: `Confirmed ${item.method}, which is not independent evidence.` };
         }
+        // Naming the method only says something where a method is what settles
+        // it. "Verified by other" is noise on an assessment that is settled by
+        // having been carried out.
         return { ...base, state: 'verified', source,
-                 because: item.method ? `Verified by ${item.method}.` : 'Verified.' };
+                 because: item.method && !SELF_EVIDENCING_KINDS.has(requirement.kind)
+                   ? `Verified by ${item.method}.`
+                   : 'Recorded.' };
       }
       case 'received':
         return { ...base, state: 'declared', source,
                  because: 'Evidence received but not yet checked.' };
-      case 'rejected':
-        return { ...base, state: 'missing', source,
-                 because: 'The evidence provided was rejected.' };
-      case 'outstanding':
       default:
-        return { ...base, state: 'missing', source, because: 'Requested, not yet provided.' };
+        return { ...base, state: 'verified', source, because: 'Verified.' };
     }
   }
 
-  // No verification item. Some kinds are answerable from the case itself.
+  const pending = item
+    ? { type: 'verification_item', id: item.id }
+    : null;
+  const pendingBecause = item?.status === 'rejected'
+    ? 'The evidence provided was rejected.'
+    : 'Requested, not yet provided.';
+
+  // Nothing has been done to the item, so the case's own records answer it.
   switch (requirement.kind) {
     case 'consent': {
       const consent = records.consents.find(
@@ -167,7 +183,7 @@ function resolveOne(
       return consent
         ? { ...base, state: 'verified', source: { type: 'consent', id: consent.id },
             because: 'Consent recorded with its lawful basis and wording.' }
-        : { ...base, state: 'missing', source: null, because: 'No consent recorded.' };
+        : { ...base, state: 'missing', source: pending, because: 'No consent recorded.' };
     }
 
     case 'vulnerability-assessment':
@@ -175,13 +191,13 @@ function resolveOne(
         ? { ...base, state: 'verified',
             source: { type: 'vulnerability_record', id: records.vulnerability.recordId },
             because: 'Assessment recorded against the FG21/1 drivers.' }
-        : { ...base, state: 'missing', source: null,
+        : { ...base, state: 'missing', source: pending,
             because: 'No assessment recorded, not even a "no indicators identified".' };
 
     case 'financial-statement': {
       const s = records.statement;
       if (!s || s.lineCount === 0) {
-        return { ...base, state: 'missing', source: null,
+        return { ...base, state: 'missing', source: pending,
                  because: 'No financial statement on the file.' };
       }
       const source = { type: 'financial_statement', id: s.id };
@@ -202,7 +218,8 @@ function resolveOne(
       // Documents, signatures, mandates, identity checks and declarations all
       // need someone to record that they happened. The software cannot infer
       // that a client disclosed every debt, or that a mandate was signed.
-      return { ...base, state: 'missing', source: null, because: 'Not yet recorded.' };
+      return { ...base, state: 'missing', source: pending,
+               because: item ? pendingBecause : 'Not yet recorded.' };
   }
 }
 

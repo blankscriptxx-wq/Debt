@@ -110,16 +110,56 @@ handle, because it cannot occur.
 
 ## The case file
 
-The adviser's working surface is eleven routed segments under
-`/app/cases/[id]`, sharing a tab bar and a case header: client details, living
-arrangements, employment, assets, debts, income and expenditure, advice,
-verification, appointments, checklist and messenger.
+The adviser's working surface is a two-pane file: a persistent **spine** on the
+left and the section being worked on to its right, at
+`/app/cases/[id]/<section>`.
 
-Each tab is a server component with server actions over one module in
+The spine is not a list of tabs. It groups the file by the question being
+answered — the client, the money, the advice, the contact — and puts each
+section's **evidence state** beside it: verified, declared, waived, expired,
+missing, or not required for this case type. Navigation and progress are the
+same object, so "where am I" and "what is left" are answered by looking in one
+place. A row of equally-weighted tabs is a database schema exposed as
+navigation, and it cannot answer the second question at all.
+
+Case Intelligence stands at the head of the spine — health, advice readiness,
+what the case needs — rather than behind a tab, because it is the reason to use
+this product and it should not be something to remember to open. The overview
+section keeps the depth: signals with their sources, the solution comparison,
+proposals awaiting a decision.
+
+The spine is derived from the case type's own evidence declarations
+(`packages/core/src/case-types/templates.ts`), so a firm adding a case type gets
+a correct spine with no code written. A DRO shows an approved-intermediary row
+and a DMP does not, because the definitions say so.
+
+Each section is a server component with server actions over one module in
 `packages/core/src/case-file/`. The pages resolve the session, read what they
 need and hand the input to a domain function; nothing is computed in a page.
 That is what lets the rules be tested without a browser, and what stops two
-tabs disagreeing about the same figure.
+sections disagreeing about the same figure.
+
+### Evidence state
+
+What the spine shows is resolved in one place
+(`packages/core/src/evidence/state.ts`) and consumed everywhere, so the spine,
+the verification section and the Case Intelligence signals cannot disagree about
+what a case is missing.
+
+The distinction it exists to preserve is **declared against verified**. A client
+saying they earn £1,800 a month and a payslip showing £1,800 a month are the
+same number and not the same fact. So a statement whose lines rest on what the
+client said is *declared* however complete it is, and an item confirmed by
+telephone is *declared* however it was marked. Consent and vulnerability
+assessment are exempt: recording them is what establishes them, and there is no
+document either could be checked against.
+
+Two judgements worth naming. A waiver counts as satisfied, because it is a
+decision that the item is not needed and second-guessing it here would make one
+case read as ready in one surface and not in another. Expired does not, because
+evidence that has run out is what a file reviewer most wants to see. And
+completeness the software cannot know — "every debt was disclosed" — needs a
+person to record it rather than being inferred from rows existing.
 
 Three rules the modules enforce that the schema alone cannot:
 

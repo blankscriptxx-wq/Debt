@@ -127,6 +127,37 @@ describe('saving a statement', () => {
     expect(loaded.lines.find((l) => l.category === 'wages')?.amountPence).toBe(220_000);
   });
 
+  it('survives two saves arriving at once', async () => {
+    // The version used to be read and then inserted, so two saves a moment
+    // apart both saw the same maximum and the second was rejected by the
+    // unique constraint on (case_id, version). Computed inside the insert, the
+    // second transaction waits on the first and reads what it committed.
+    const before = await tenant.as(async (db) => {
+      const r = await db.execute<{ n: string }>(sql`
+        SELECT count(*)::text AS n FROM financial_statements WHERE case_id = ${caseId}`);
+      return Number(r.rows[0]!.n);
+    });
+
+    const save = (amount: number) => tenant.as((db) =>
+      saveStatement(db, tenant.context, adviser(), {
+        caseId, clientId, household: HOUSEHOLD, lines: [wages(amount), rent(75_000)],
+      }));
+    await Promise.all([save(230_000), save(240_000), save(250_000)]);
+
+    const after = await tenant.as(async (db) => {
+      const rows = await db.execute<{ version: string; status: string }>(sql`
+        SELECT version::text, status FROM financial_statements
+         WHERE case_id = ${caseId} ORDER BY version`);
+      return rows.rows;
+    });
+
+    expect(after).toHaveLength(before + 3);
+    // Versions stay unique and contiguous, and exactly one survives as current.
+    expect(after.map((r) => Number(r.version)))
+      .toEqual(Array.from({ length: after.length }, (_, i) => i + 1));
+    expect(after.filter((r) => r.status === 'current')).toHaveLength(1);
+  });
+
   it('refuses a negative amount rather than storing a nonsense figure', async () => {
     await expect(tenant.as((db) => saveStatement(db, tenant.context, adviser(), {
       caseId, clientId, household: HOUSEHOLD, lines: [wages(-500)],

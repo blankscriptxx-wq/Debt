@@ -148,6 +148,46 @@ describe('verification item states', () => {
   });
 });
 
+describe('an outstanding item does not erase evidence the case already has', () => {
+  // Opening a case creates a row for every requirement the case type declares.
+  // If those rows outranked the records, opening a case would appear to wipe
+  // its consents and its statement.
+  const outstanding = (key: string) => ({
+    verificationItems: [{
+      id: 'v1', requirementKey: key, status: 'outstanding' as const,
+      method: null, expiresOn: null }],
+  });
+
+  it('leaves a granted consent verified', () => {
+    const r = find({ ...outstanding('consent.processing'),
+      consents: [{ id: 'c1', purpose: 'consent.processing', granted: true, withdrawnAt: null }] },
+      'consent.processing');
+    expect(r.state).toBe('verified');
+  });
+
+  it('leaves a completed statement as the statement makes it', () => {
+    const r = find({ ...outstanding('sfs.complete'),
+      statement: { id: 's1', completedAt: '2026-08-20', lineCount: 4, evidencedLineCount: 4 } },
+      'sfs.complete');
+    expect(r.state).toBe('verified');
+  });
+
+  it('still reports missing where nothing answers it, naming the request', () => {
+    const r = find(outstanding('payment.mandate'), 'payment.mandate');
+    expect(r.state).toBe('missing');
+    expect(r.source).toEqual({ type: 'verification_item', id: 'v1' });
+    expect(r.because).toBe('Requested, not yet provided.');
+  });
+
+  it('says so when the evidence offered was rejected', () => {
+    const r = find({ verificationItems: [{
+      id: 'v1', requirementKey: 'payment.mandate', status: 'rejected',
+      method: 'document', expiresOn: null }] }, 'payment.mandate');
+    expect(r.state).toBe('missing');
+    expect(r.because).toContain('rejected');
+  });
+});
+
 describe('vulnerability', () => {
   it('counts a recorded "no indicators identified" as assessed', () => {
     const r = find({ vulnerability: { assessed: true, recordId: 'vr1' } },

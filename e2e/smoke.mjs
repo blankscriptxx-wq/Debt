@@ -66,13 +66,15 @@ try {
   await page.keyboard.press('Enter');
 
   await page.waitForURL(/\/cases\/[0-9a-f-]{36}/, { timeout: 15000 });
-  await page.waitForSelector('.sv-page-header__title');
+  await page.waitForSelector('.sv-casehead__name');
 
-  const caseHeading = await page.locator('.sv-page-header__title').innerText();
+  const caseHeading = await page.locator('.sv-casehead__name').innerText();
   check('opens the case from search', caseHeading.includes('Whitfield'), caseHeading);
 
-  const health = await page.locator('.sv-health__score').innerText();
-  check('case health is computed', /^\d+$/.test(health), `score ${health}`);
+  // Health is at the head of the spine now rather than in a card on the
+  // overview, so it is present on every section of the file, not just this one.
+  const health = await page.locator('.sv-standing__score').innerText();
+  check('case health is computed', /^\d+/.test(health), `score ${health.split('\n')[0]}`);
 
   const signals = await page.locator('.sv-signal').count();
   check('signals are raised with sources', signals > 0, `${signals} signals`);
@@ -95,7 +97,7 @@ try {
   const vulnerable = page.locator('.sv-table tbody tr', { hasText: 'Crozier' });
   check('vulnerability is visible on the list', await vulnerable.count() > 0);
   await vulnerable.locator('a').first().click();
-  await page.waitForSelector('.sv-page-header__title');
+  await page.waitForSelector('.sv-casehead__name');
   const vulnText = await page.locator('body').innerText();
   check('vulnerability raises an urgent signal', vulnText.includes('Significant vulnerability recorded'));
   check('deficit budget is flagged', vulnText.includes('Budget is in deficit'));

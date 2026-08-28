@@ -34,6 +34,21 @@ export interface VerificationItem {
 
 export class VerificationError extends Error {}
 
+/**
+ * Where a requirement belongs in the checks table, from what kind of thing it
+ * is. Category is how the list is grouped for an adviser; it plays no part in
+ * whether a requirement counts as met.
+ */
+export function categoryForKind(kind: string): VerificationItem['category'] {
+  switch (kind) {
+    case 'identity': return 'identity';
+    case 'vulnerability-assessment': return 'vulnerability';
+    case 'financial-statement': case 'bank-data': return 'income';
+    case 'credit-file': return 'debt';
+    default: return 'other';
+  }
+}
+
 export async function listVerificationItems(
   db: Database, caseId: string,
 ): Promise<VerificationItem[]> {

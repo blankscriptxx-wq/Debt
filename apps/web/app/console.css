@@ -57,7 +57,15 @@
 .sv-case-layout {
   display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: var(--space-5);
 }
-@media (max-width: 1100px) { .sv-case-layout { grid-template-columns: 1fr; } }
+/* Measured against the space this actually has, not the window. The spine takes
+   300px of it, so a viewport breakpoint would keep the rail beside a main
+   column that no longer has room for it — which is what happened. */
+@container case-work (max-width: 900px) {
+  .sv-case-layout { grid-template-columns: 1fr; }
+}
+@supports not (container-type: inline-size) {
+  @media (max-width: 1400px) { .sv-case-layout { grid-template-columns: 1fr; } }
+}
 @media (max-width: 900px) {
   /* `1fr` in a grid is min-content by default, so a wide table still forces the
      whole page wider than the viewport. minmax(0, 1fr) lets the column shrink

@@ -1,25 +1,18 @@
 import { redirect } from 'next/navigation';
 import { requireSession, query } from '@/lib/console/session';
-import { loadCaseFileHeader, listVerificationItems } from '@/lib/console/case-file';
-import { setVerificationStatus, syncRequirements, VerificationError } from '@solvenda/core';
+import { listVerificationItems } from '@/lib/console/case-file';
+import { caseContext } from '@/lib/console/case-context';
 import {
-  Badge, Card, DataTable, EmptyState, SimulatedNotice, Stack, SummaryBar,
+  categoryForKind, setVerificationStatus, syncRequirements, VerificationError,
+} from '@solvenda/core';
+import {
+  Badge, Card, DataTable, EmptyState, EvidenceState, SimulatedNotice, Stack, SummaryBar,
 } from '@solvenda/ui';
 
 export const dynamic = 'force-dynamic';
 
 const STATUSES = ['outstanding', 'received', 'verified', 'rejected', 'waived', 'not-applicable'];
 const METHODS = ['document', 'open-banking', 'credit-file', 'electronic-check', 'verbal', 'other'];
-
-/** The checks every case needs, until case types carry their own list. */
-const BASELINE = [
-  { key: 'identity.photo-id', category: 'identity' as const },
-  { key: 'identity.date-of-birth', category: 'identity' as const },
-  { key: 'address.proof', category: 'address' as const },
-  { key: 'income.payslip-or-benefit-award', category: 'income' as const },
-  { key: 'income.bank-statements', category: 'income' as const },
-  { key: 'debt.creditor-statements', category: 'debt' as const },
-];
 
 const sentence = (v: string) =>
   v.replace(/[.-]/g, ' ').replace(/^./, (c) => c.toUpperCase());
@@ -46,13 +39,19 @@ export default async function VerificationTab({
   const { id } = await params;
   const { saved, error } = await searchParams;
 
-  const header = await query(session, (db) => loadCaseFileHeader(db, id));
-  if (!header) redirect('/app/cases');
+  const context = await caseContext(id);
+  if (!context) redirect('/app/cases');
+  const { header, detail } = context;
 
-  // Idempotent: a case type gaining a requirement surfaces on existing cases,
-  // and one losing a requirement leaves completed history alone.
-  await query(session, (db) => syncRequirements(db, id, header.clientId, BASELINE));
+  // The checks are the case type's own evidence declarations, not a list kept
+  // here. That is what makes this tab the place the spine's states are actually
+  // resolved: act on a row and the spine moves, because both read the same
+  // requirements. Idempotent, so a case type gaining a requirement surfaces on
+  // existing cases while one losing a requirement leaves completed history be.
+  await query(session, (db) => syncRequirements(db, id, header.clientId,
+    detail.evidence.map((e) => ({ key: e.key, category: categoryForKind(e.kind) }))));
   const items = await query(session, (db) => listVerificationItems(db, id));
+  const stateOf = new Map(detail.evidence.map((e) => [e.key, e]));
 
   const verified = items.filter((i) => i.status === 'verified').length;
   const outstanding = items.filter((i) => i.status === 'outstanding').length;
@@ -95,10 +94,26 @@ export default async function VerificationTab({
           getKey={(i) => i.id}
           empty={<EmptyState title="No checks configured." />}
           columns={[
-            { key: 'req', header: 'Requirement', render: (i) => sentence(i.requirementKey) },
-            { key: 'cat', header: 'Category', render: (i) => sentence(i.category) },
             {
-              key: 'status', header: 'Status',
+              key: 'req', header: 'Requirement',
+              render: (i) => (
+                <>
+                  <strong>{stateOf.get(i.requirementKey)?.label ?? sentence(i.requirementKey)}</strong>
+                  <span className="sv-muted" style={{ display: 'block', fontSize: 'var(--text-2xs)' }}>
+                    {stateOf.get(i.requirementKey)?.because ?? sentence(i.category)}
+                  </span>
+                </>
+              ),
+            },
+            {
+              key: 'state', header: 'Counts as',
+              render: (i) => {
+                const resolved = stateOf.get(i.requirementKey);
+                return resolved ? <EvidenceState state={resolved.state} /> : '—';
+              },
+            },
+            {
+              key: 'status', header: 'Recorded',
               render: (i) => <Badge tone={TONE[i.status] ?? 'neutral'}>{sentence(i.status)}</Badge>,
             },
             { key: 'method', header: 'Method',

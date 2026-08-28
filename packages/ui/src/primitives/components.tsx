@@ -429,27 +429,148 @@ export function SummaryBar({ figures }: { figures: readonly SummaryFigure[] }) {
   );
 }
 
-/** The case file's tab strip. Scrolls rather than wraps on a narrow screen. */
-export function TabBar({
-  tabs, current, base,
+
+/* ------------------------------------------------------------------------- *
+ * The case spine.
+ *
+ * A case is not eleven equal drawers. It is a set of questions — do we know
+ * who this person is, do we know what they have and owe, can we advise yet —
+ * and the answer to each is not "visited" or "not visited" but how well the
+ * thing is known. The spine is that answer, standing permanently beside the
+ * work rather than behind a tab, so navigation and progress are one object.
+ * ------------------------------------------------------------------------- */
+
+export type EvidenceTone =
+  'verified' | 'declared' | 'waived' | 'expired' | 'missing' | 'not-required';
+
+/**
+ * Each state gets a glyph as well as a colour.
+ *
+ * Colour alone cannot carry status — a red and a green dot are the same dot to
+ * a good proportion of advisers, and this particular status decides whether a
+ * regulated recommendation can be made.
+ */
+const EVIDENCE_MARK: Record<EvidenceTone, { glyph: string; word: string }> = {
+  verified: { glyph: '✓', word: 'Verified' },
+  declared: { glyph: '◐', word: 'Declared' },
+  waived: { glyph: '⊘', word: 'Waived' },
+  expired: { glyph: '↻', word: 'Expired' },
+  missing: { glyph: '○', word: 'Missing' },
+  'not-required': { glyph: '–', word: 'Not required' },
+};
+
+export function EvidenceState({ state, label }: { state: EvidenceTone; label?: string }) {
+  const mark = EVIDENCE_MARK[state];
+  return (
+    <span className={cx('sv-ev', `sv-ev--${state}`)}>
+      <span className="sv-ev__glyph" aria-hidden="true">{mark.glyph}</span>
+      <span className="sv-ev__word">{label ?? mark.word}</span>
+    </span>
+  );
+}
+
+export function Spine({
+  children, standing, open = false, onToggle, outstanding,
 }: {
-  tabs: readonly { slug: string; label: string; count?: number }[];
-  current: string;
-  base: string;
+  children: React.ReactNode;
+  /** Rendered above the fold on every screen size. */
+  standing?: React.ReactNode;
+  open?: boolean;
+  onToggle?: () => void;
+  /** How many sections still want something, for the collapsed summary. */
+  outstanding?: number;
 }) {
   return (
-    <nav className="sv-tabs" aria-label="Case file">
-      {tabs.map((tab) => (
-        <a key={tab.slug}
-           href={tab.slug ? `${base}/${tab.slug}` : base}
-           className={cx('sv-tabs__tab', current === tab.slug && 'sv-tabs__tab--current')}
-           aria-current={current === tab.slug ? 'page' : undefined}>
-          {tab.label}
-          {tab.count != null && tab.count > 0 && (
-            <span className="sv-tabs__count">{tab.count}</span>
-          )}
-        </a>
-      ))}
+    <nav className={cx('sv-spine', open && 'sv-spine--open')} aria-label="Case file">
+      {standing}
+      {onToggle ? (
+        // Only reachable on a narrow screen, where the alternative is scrolling
+        // past twelve rows to reach the form. On a wide one the sections are
+        // always shown and this control is not rendered to the viewport.
+        <button type="button" className="sv-spine__toggle" onClick={onToggle}
+                aria-expanded={open}>
+          <span>{open ? 'Hide the file' : 'The whole file'}</span>
+          {!open && outstanding ? (
+            <span className="sv-spine__toggleCount">{outstanding} want attention</span>
+          ) : null}
+        </button>
+      ) : null}
+      <div className="sv-spine__body">{children}</div>
     </nav>
+  );
+}
+
+export function SpineSection({
+  title, children,
+}: { title: string; children: React.ReactNode }) {
+  return (
+    <div className="sv-spine__section">
+      <h3 className="sv-spine__heading">{title}</h3>
+      <ul className="sv-spine__list">{children}</ul>
+    </div>
+  );
+}
+
+export function SpineRow({
+  href, label, state, detail, count, current = false,
+}: {
+  href: string;
+  label: string;
+  state?: EvidenceTone;
+  /** Why the state is what it is. Shown to the adviser, not just on hover. */
+  detail?: string;
+  count?: number;
+  current?: boolean;
+}) {
+  return (
+    <li>
+      <a href={href}
+         className={cx('sv-spine__row', current && 'sv-spine__row--current')}
+         aria-current={current ? 'page' : undefined}>
+        <span className="sv-spine__label">
+          {label}
+          {typeof count === 'number' && count > 0
+            ? <span className="sv-spine__count">{count}</span> : null}
+        </span>
+        {state ? <EvidenceState state={state} /> : null}
+        {detail ? <span className="sv-spine__detail">{detail}</span> : null}
+      </a>
+    </li>
+  );
+}
+
+/**
+ * The case's standing summary, at the head of the spine.
+ *
+ * Case Intelligence is the reason to use this product, so it is not a tab an
+ * adviser has to remember to open. What it cannot be here is the full picture —
+ * that is the overview — so this is the three things worth knowing before doing
+ * anything else, each of which links to its own detail.
+ */
+export function CaseStanding({
+  score, band, summary, ready, blockingCount, href,
+}: {
+  score: number;
+  band: string;
+  summary: string;
+  ready: boolean;
+  blockingCount: number;
+  href: string;
+}) {
+  return (
+    <a className="sv-standing" href={href}>
+      <span className={cx('sv-standing__score', `sv-standing__score--${band}`)}>
+        {score}
+        <span className="sv-standing__scoreLabel">health</span>
+      </span>
+      <span className="sv-standing__body">
+        <span className="sv-standing__ready">
+          {ready
+            ? 'Ready to advise'
+            : `${blockingCount} item${blockingCount === 1 ? '' : 's'} before advice`}
+        </span>
+        <span className="sv-standing__summary">{summary}</span>
+      </span>
+    </a>
   );
 }

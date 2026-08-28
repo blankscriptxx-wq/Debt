@@ -1,10 +1,9 @@
 import { notFound } from 'next/navigation';
-import { requireSession, query } from '@/lib/console/session';
-import { loadCaseDetail } from '@/lib/console/data';
+import { caseContext } from '@/lib/console/case-context';
 import { ProposalDecision } from '@/components/console/proposal-decision';
 import {
-  Badge, Card, DataTable, EmptyState, Grid, HealthMeter, Money,
-  PageHeader, RegulatedMark, SignalRow, Stack, StatTile,
+  Badge, Card, DataTable, EmptyState, Grid, Money,
+  RegulatedMark, SignalRow, Stack, StatTile,
 } from '@solvenda/ui';
 
 export const dynamic = 'force-dynamic';
@@ -20,12 +19,11 @@ export const dynamic = 'force-dynamic';
  * faith.
  */
 export default async function CasePage({ params }: { params: Promise<{ id: string }> }) {
-  const session = await requireSession();
   const { id } = await params;
 
-  const detail = await query(session, (db) => loadCaseDetail(db, id));
-
-  if (!detail) notFound();
+  const context = await caseContext(id);
+  if (!context) notFound();
+  const { detail } = context;
   const { intelligence: intel } = detail;
 
   const statement = intel.eligibility.facts;
@@ -37,11 +35,6 @@ export default async function CasePage({ params }: { params: Promise<{ id: strin
 
       <div className="sv-case-layout">
         <Stack gap={5}>
-          <Card title="Case health" subtitle="Computed from the case record, not inferred">
-            <HealthMeter score={intel.health.score} band={intel.health.band}
-                         summary={intel.health.summary} />
-          </Card>
-
           <Card title="Advice readiness"
                 subtitle={intel.adviceReadiness.ready
                   ? 'Everything needed to advise is present'

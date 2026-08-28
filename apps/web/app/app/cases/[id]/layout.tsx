@@ -1,20 +1,22 @@
 import { notFound } from 'next/navigation';
 import { requireSession, query } from '@/lib/console/session';
-import { loadCaseFileHeader, loadTabCounts } from '@/lib/console/case-file';
+import { caseContext } from '@/lib/console/case-context';
+import { CASE_SECTIONS, sectionState } from '@/lib/console/case-sections';
 import { AppShell } from '@/components/console/app-shell';
 import { loadDashboard } from '@/lib/console/data';
-import { PageHeader } from '@solvenda/ui';
-import { CaseTabs } from '@/components/console/case-tabs';
+import { CaseSpine, type SpineRowData } from '@/components/console/case-spine';
+import { Badge } from '@solvenda/ui';
 
 export const dynamic = 'force-dynamic';
 
 /**
  * The case file.
  *
- * Eleven tabs over one case, sharing this header and strip so an adviser never
- * loses their place. The counts are on the strip because the commonest question
- * when picking a file back up is "what is left", and answering it should not
- * require opening every tab.
+ * The spine stands beside the work rather than above it, and carries evidence
+ * state rather than a row of names: an adviser opening a file asks how well the
+ * case is known, and a strip of equal tabs cannot answer that. Case Intelligence
+ * sits at its head because it is the reason to use this product, and putting it
+ * behind a tab made it something to remember to open.
  */
 export default async function CaseLayout({
   children, params,
@@ -25,29 +27,24 @@ export default async function CaseLayout({
   const session = await requireSession();
   const { id } = await params;
 
-  const header = await query(session, (db) => loadCaseFileHeader(db, id));
-  if (!header) notFound();
+  const context = await caseContext(id);
+  if (!context) notFound();
+  const { header, detail, counts } = context;
+  const intel = detail.intelligence;
 
-  const [counts, dashboard] = await Promise.all([
-    query(session, (db) => loadTabCounts(db, id, header.clientId)),
-    query(session, (db) => loadDashboard(db, session.user.id)),
-  ]);
+  const rows: SpineRowData[] = CASE_SECTIONS.map((section) => {
+    const state = sectionState(section, detail.evidence);
+    return {
+      slug: section.slug,
+      label: section.label,
+      group: section.group,
+      state: state?.state ?? null,
+      detail: state?.because ?? null,
+      count: section.countKey ? counts[section.countKey] : undefined,
+    };
+  });
 
-  const base = `/app/cases/${id}`;
-  const tabs = [
-    { slug: '', label: 'Overview' },
-    { slug: 'client', label: 'Client details' },
-    { slug: 'living', label: 'Living arrangements', count: counts['household'] },
-    { slug: 'employment', label: 'Employment', count: counts['employment'] },
-    { slug: 'assets', label: 'Assets', count: counts['assets'] },
-    { slug: 'debts', label: 'Debts', count: counts['debts'] },
-    { slug: 'finances', label: 'I&E (SFS)' },
-    { slug: 'advice', label: 'Advice' },
-    { slug: 'verification', label: 'Verification', count: counts['verification'] },
-    { slug: 'appointments', label: 'Appointments', count: counts['appointments'] },
-    { slug: 'checklist', label: 'Checklist' },
-    { slug: 'messenger', label: 'Messenger', count: counts['messages'] },
-  ];
+  const dashboard = await query(session, (db) => loadDashboard(db, session.user.id));
 
   return (
     <AppShell
@@ -57,19 +54,35 @@ export default async function CaseLayout({
                 approvals: dashboard.pendingApprovals }}
       current="cases"
     >
-      <PageHeader
-        eyebrow={header.caseTypeKey.toUpperCase()}
-        title={`${header.clientName}, ${header.reference}`}
-        meta={
-          <>
-            <span>Stage: <strong>{header.stage}</strong></span>
-            <span>Adviser: {header.ownerName ?? 'Unassigned'}</span>
-            <span>{header.status}</span>
-          </>
-        }
-      />
-      <CaseTabs tabs={tabs} base={base} />
-      {children}
+      <header className="sv-casehead">
+        <div className="sv-casehead__who">
+          <h1 className="sv-casehead__name">{header.clientName}</h1>
+          <p className="sv-casehead__meta">
+            <span className="sv-casehead__ref">{header.reference}</span>
+            <span>{detail.caseTypeName}</span>
+            <span>{header.ownerName ?? 'Unassigned'}</span>
+          </p>
+        </div>
+        <div className="sv-casehead__state">
+          <Badge tone={header.status === 'open' ? 'positive' : 'neutral'}>{header.status}</Badge>
+          <Badge tone="accent">{header.stage}</Badge>
+        </div>
+      </header>
+
+      <div className="sv-case">
+        <CaseSpine
+          rows={rows}
+          base={`/app/cases/${id}`}
+          standing={{
+            score: intel.health.score,
+            band: intel.health.band,
+            summary: intel.health.summary,
+            ready: intel.adviceReadiness.ready,
+            blockingCount: intel.adviceReadiness.blocking.length,
+          }}
+        />
+        <div className="sv-case__work">{children}</div>
+      </div>
     </AppShell>
   );
 }

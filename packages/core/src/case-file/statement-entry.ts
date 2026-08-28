@@ -111,36 +111,47 @@ export async function saveStatement(
     triggers: input.triggers ?? null,
   });
 
-  const previous = await db.execute<Record<string, string>>(sql`
-    SELECT id, version::text FROM financial_statements
-     WHERE case_id = ${input.caseId} ORDER BY version DESC LIMIT 1`);
-  const version = previous.rows[0] ? Number(previous.rows[0]['version']) + 1 : 1;
+  // Serialise saves for this case before touching anything.
+  //
+  // Retiring the current statement is not enough on its own: two transactions
+  // each retire the row they can see, neither sees the other's insert, and both
+  // land a second `current`. A double-clicked save button is all it takes. The
+  // case row is the natural thing to hold — it is what the statements belong to
+  // — and the lock lasts until this transaction commits.
+  await db.execute(sql`SELECT id FROM cases WHERE id = ${input.caseId} FOR UPDATE`);
 
-  // Retire the outgoing statement before the new one lands. Only one statement
-  // per case may be current — the database enforces that with a partial unique
-  // index — so the order here is not stylistic: inserting first would collide.
-  // `superseded_by` is filled in below, once the replacement has an id.
-  if (previous.rows[0]) {
-    await db.execute(sql`
-      UPDATE financial_statements
-         SET status = 'superseded', superseded_at = now(),
-             supersede_reason = ${input.supersedeReason ?? 'Replaced by a newer statement'}
-       WHERE id = ${previous.rows[0]['id']} AND status <> 'superseded'`);
-  }
+  // Retire the outgoing statement, picked by its status rather than by an id
+  // read a moment earlier. Only one statement per case may be current, enforced
+  // by a partial unique index, so inserting first would collide.
+  const previous = await db.execute<{ id: string }>(sql`
+    UPDATE financial_statements
+       SET status = 'superseded', superseded_at = now(),
+           supersede_reason = ${input.supersedeReason ?? 'Replaced by a newer statement'}
+     WHERE case_id = ${input.caseId} AND status IN ('draft', 'current')
+    RETURNING id`);
 
-  const created = await db.execute<{ id: string }>(sql`
+  // The version is computed in the insert, not read beforehand. Read first and
+  // two saves a moment apart both see the same maximum and the second violates
+  // the unique constraint on (case_id, version); computed here, the second
+  // transaction — which has just waited on the update above — reads the version
+  // the first one committed.
+  const created = await db.execute<{ id: string; version: number }>(sql`
     INSERT INTO financial_statements
       (case_id, client_id, version, status, total_income_pence,
        total_expenditure_pence, surplus_pence, trigger_exceedances,
        household_composition, completed_by, completed_at)
-    VALUES (${input.caseId}, ${input.clientId}, ${version}, 'current',
+    VALUES (${input.caseId}, ${input.clientId},
+            (SELECT coalesce(max(version), 0) + 1 FROM financial_statements
+              WHERE case_id = ${input.caseId}),
+            'current',
             ${built.totals.totalIncomePence}, ${built.totals.totalExpenditurePence},
             ${built.totals.surplusPence},
             ${JSON.stringify(built.exceedances)}::jsonb,
             ${JSON.stringify(built.household)}::jsonb,
             ${ctx.userId ?? null}, now())
-    RETURNING id`);
+    RETURNING id, version`);
   const statementId = created.rows[0]!.id;
+  const version = Number(created.rows[0]!.version);
 
   for (const line of built.lines) {
     await db.execute(sql`
@@ -161,13 +172,13 @@ export async function saveStatement(
               'declared')`);
   }
 
-  // Now that the replacement exists, point the retired statement at it. The
+  // Now that the replacement exists, point the retired statements at it. The
   // whole save runs in one transaction, so a reader never sees a superseded
   // statement with nothing to succeed it.
-  if (previous.rows[0]) {
+  for (const row of previous.rows) {
     await db.execute(sql`
       UPDATE financial_statements SET superseded_by = ${statementId}
-       WHERE id = ${previous.rows[0]['id']} AND superseded_by IS NULL`);
+       WHERE id = ${row.id} AND superseded_by IS NULL`);
   }
 
   await recordAudit(db, ctx, {

@@ -383,3 +383,90 @@ checks across seven suites: console 28, client portal 16, Control 22, public API
 20, marketing 46, demo sign-in 9, case file 36. The full browser suite runs twice
 in succession with identical results, against a database the second run inherits
 from the first.
+
+## The case file, redesigned around evidence
+
+The eleven tabs worked and their design was taken from the HubSolv screenshots.
+The visual layer was ours — the palette, Inter with tabular figures, the 4px
+base, the `regulated` purple. The information architecture was not: eleven
+equally-weighted tabs in a horizontal strip, labelled and ordered as HubSolv
+labels and orders them. That is the part that counts as the design.
+
+The resemblance was not the worst of it. A row of eleven drawers is a database
+schema exposed as navigation — the thing the brief says the incumbents get
+wrong — and it made **Case Intelligence, the product's whole argument, a peer of
+"Appointments"**.
+
+### What replaced it
+
+A persistent left spine with the work beside it. Three things make it ours
+rather than a rearrangement of theirs.
+
+**It is grouped by the question being answered** — the client, the money, the
+advice, the contact — not by table name. An adviser asks "do I know enough about
+this person yet", not "have I opened the employment_records tab".
+
+**Every row carries evidence state, not a count.** Verified, declared, waived,
+expired, missing, or not required for this case type. A count says how much is
+there; the state says whether it can be relied on. Each state has a glyph as
+well as a colour, because a red dot and a green dot are the same dot to a
+significant number of advisers and this status decides whether a regulated
+recommendation can be made.
+
+**It is derived from the case type's own declarations**, so a firm adding a case
+type gets a correct spine with nobody writing code. A DRO shows an
+approved-intermediary row and a DMP does not, because the definitions say so.
+
+Case Intelligence now stands at the head of the spine on every section rather
+than behind a tab. The overview keeps the depth — signals with their sources,
+the solution comparison, proposals awaiting decision — and is the place you open
+for detail rather than the only place any of it appears.
+
+### The bug underneath, which was the larger half
+
+Evidence state was answered by one query: the distinct purposes of granted
+consents. So the only evidence that could ever be true was a consent, and
+`identity.verified`, `sfs.complete` and `debts.captured` are not consents. The
+seed wrote them as consent rows anyway, which is why the product looked correct.
+Nothing outside the seed ever wrote them, so a case genuinely worked through the
+case file would have shown its evidence outstanding forever, however complete.
+
+Building a spine on that would have displayed the fiction more prominently, so
+the two were one piece of work. `packages/core/src/evidence/state.ts` resolves
+each requirement against the records that actually decide it, driven by the
+requirement's `kind` rather than a table of known keys. The verification section
+was the same problem one layer up: it called `syncRequirements` — which existed
+and was correct — with a hardcoded list of six checks that were not the case
+type's requirements, so acting on a row moved nothing. It now passes the case
+type's own evidence, which is what makes that section the place the spine's
+states are resolved.
+
+The demonstration data is no longer uniformly complete as a result. One case is
+fully verified; one has a debt list confirmed only by telephone, which the spine
+reports as declared; one rests entirely on what the client said. That is a
+better demonstration as well as a truthful one.
+
+### Three more defects, found by the work
+
+**Saving a statement raced with itself.** The version was read and then
+inserted, so two saves a moment apart — a double-clicked button is enough — both
+saw the same maximum and the second violated `(case_id, version)`. Retiring the
+current statement first was not sufficient either: each transaction retires the
+row it can see, neither sees the other's insert, and both land a second
+`current`. Saves are now serialised on the case row, and the version is computed
+inside the insert. Tested with three concurrent saves, which produce three
+contiguous versions and one current.
+
+**A recorded "no indicators identified" had nowhere to live**, since
+`vulnerability_records` constrains `driver` to the four FG21/1 drivers. It is a
+verification item, which needs no schema change.
+
+**The overview's right rail collapsed on viewport width** while the spine had
+taken 300px of its space, so it stayed beside a main column with no room for it.
+It is a container query now, measured against the space it actually has.
+
+**Counts.** 398 unit and integration tests, 1 skipped. 194 browser and API
+checks across seven suites; the case file suite grew from 36 to 43 and now
+asserts the transition the redesign rests on — recording evidence moves the
+section to verified, a verbal confirmation drops it to declared, and withdrawing
+it returns it to missing. Two consecutive full runs, identical results.

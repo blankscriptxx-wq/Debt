@@ -75,10 +75,23 @@ try {
   // reset the review date the overdue-review signal is derived from.
   await page.goto(`${BASE}/app/cases`, { waitUntil: 'domcontentloaded' });
   await page.locator('.sv-table tbody tr', { hasText: 'DMP-9100' }).locator('a').first().click();
-  await page.waitForSelector('.sv-tabs');
+  await page.waitForSelector('.sv-spine');
   const caseUrl = new URL(page.url()).pathname;
-  check('the case file opens with its tabs', await page.locator('.sv-tabs__tab').count() === 12,
-        `${await page.locator('.sv-tabs__tab').count()} tabs`);
+  check('the case file opens with its spine',
+        await page.locator('.sv-spine__row').count() === 11,
+        `${await page.locator('.sv-spine__row').count()} sections`);
+
+  // Case Intelligence stands at the head of the spine rather than behind a tab,
+  // so it is present on every section, not only on the overview.
+  check('the case standing is present without opening anything',
+        await page.locator('.sv-standing').isVisible());
+
+  /** The evidence state a section is showing, as the adviser reads it. */
+  const sectionState = async (label) => {
+    const row = page.locator('.sv-spine__row', { hasText: label }).first();
+    const state = row.locator('.sv-ev__word');
+    return await state.count() === 0 ? null : (await state.innerText()).trim().toLowerCase();
+  };
 
   // Every tab must render: a missing one is a 404 on click, not at build time.
   const missing = [];
@@ -86,7 +99,7 @@ try {
   for (const slug of ['client', 'living', 'employment', 'assets', 'debts', 'finances',
                       'advice', 'verification', 'appointments', 'checklist', 'messenger']) {
     const res = await page.goto(`${BASE}${caseUrl}/${slug}`, { waitUntil: 'domcontentloaded' });
-    await page.waitForSelector('.sv-tabs');
+    await page.waitForSelector('.sv-spine');
     check(`${slug} renders`, res.status() === 200, String(res.status()));
   }
 
@@ -196,6 +209,11 @@ try {
 
   // --- income and expenditure ---------------------------------------------
   await page.goto(`${BASE}${caseUrl}/finances`, { waitUntil: 'domcontentloaded' });
+  // The statement on this fixture rests on what the client said, so the spine
+  // should be saying so before anything is touched.
+  check('the spine reports the statement as declared, not verified',
+        await sectionState('Income and spending') === 'declared',
+        String(await sectionState('Income and spending')));
   await page.fill('input[name="income:wages:amount"]', '1800');
   await page.selectOption('select[name="income:wages:frequency"]', 'monthly');
   await page.selectOption('select[name="income:wages:evidence"]', 'document');
@@ -224,9 +242,51 @@ try {
         await page.locator('.sv-card__title').first().innerText());
   await page.screenshot({ path: `${OUT}/case-finances.png`, fullPage: true });
 
+  // --- does recording evidence move the spine? -----------------------------
+  // The assertion the redesign rests on. The spine is not a second opinion
+  // painted beside the work: acting on a requirement has to move the state the
+  // rest of the platform reasons about, or it is decoration.
+  await page.goto(`${BASE}${caseUrl}/debts`, { waitUntil: 'domcontentloaded' });
+  check('debts start out unevidenced', await sectionState('Debts') === 'missing',
+        String(await sectionState('Debts')));
+
+  await page.goto(`${BASE}${caseUrl}/verification`, { waitUntil: 'domcontentloaded' });
+  // Requirements come from the case type, so this row exists without anyone
+  // having configured it for this case.
+  const debtRow = page.locator('.sv-table tbody tr', { hasText: 'Debts and creditors captured' });
+  check('the case type\'s own requirements are listed to act on',
+        await debtRow.count() === 1, `${await debtRow.count()} matching rows`);
+
+  await debtRow.locator('select[name=status]').selectOption('verified');
+  await debtRow.locator('select[name=method]').selectOption('document');
+  await debtRow.locator('button[type=submit]').click();
+  await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
+
+  check('recording the evidence moves the section to verified',
+        await sectionState('Debts') === 'verified', String(await sectionState('Debts')));
+
+  // And a verbal confirmation is not a document, however it is marked.
+  await page.goto(`${BASE}${caseUrl}/verification`, { waitUntil: 'domcontentloaded' });
+  const row2 = page.locator('.sv-table tbody tr', { hasText: 'Debts and creditors captured' });
+  await row2.locator('select[name=method]').selectOption('verbal');
+  await row2.locator('button[type=submit]').click();
+  await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
+  check('a verbal confirmation counts as declared, not verified',
+        await sectionState('Debts') === 'declared', String(await sectionState('Debts')));
+
+  // Put it back, so the next run starts where this one did — and so the
+  // transition is shown to run in both directions rather than only forwards.
+  await page.goto(`${BASE}${caseUrl}/verification`, { waitUntil: 'domcontentloaded' });
+  const row3 = page.locator('.sv-table tbody tr', { hasText: 'Debts and creditors captured' });
+  await row3.locator('select[name=status]').selectOption('outstanding');
+  await row3.locator('button[type=submit]').click();
+  await page.waitForURL(/saved=1|error=/, { timeout: 20000 });
+  check('withdrawing the evidence returns the section to missing',
+        await sectionState('Debts') === 'missing', String(await sectionState('Debts')));
+
   // --- does any of it reach the advice? -----------------------------------
   await page.goto(`${BASE}${caseUrl}`, { waitUntil: 'domcontentloaded' });
-  await page.waitForSelector('.sv-health__score');
+  await page.waitForSelector('.sv-standing');
   const overview = await page.locator('body').innerText();
   // The whole point of the file: what the adviser typed into the I&E is the
   // figure the solution comparison reasons about, not a stale seeded one.
@@ -241,7 +301,7 @@ try {
   check('the checklist derives from the case type',
         (await page.locator('body').innerText()).includes('Advice readiness'));
 
-  check('no missing routes behind the tabs', missing.length === 0,
+  check('no missing routes behind the spine', missing.length === 0,
         [...new Set(missing)].join(', '));
   check('no uncaught client errors', errors.length === 0, errors.slice(0, 3).join(' | '));
 } finally {
