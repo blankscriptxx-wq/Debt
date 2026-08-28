@@ -54,6 +54,23 @@ A managed Postgres provider that only hands out a single superuser role is not
 sufficient. The separation is the control; collapsing it to one role removes the
 guarantee that a forgotten tenant filter returns nothing.
 
+### Neon, via the Vercel integration
+
+The integration provisions one role (`neondb_owner`) and injects `PGHOST`,
+`PGDATABASE`, `PGUSER` and `PGPASSWORD` for it. The app reads none of those
+credentials directly, so there is no conflict — but the three roles it does need
+have to be created first.
+
+Run `packages/db/bootstrap/neon.sql` once in the Neon SQL editor, as
+`neondb_owner`, with the three passwords substituted. It also creates the
+`pgcrypto` and `citext` extensions, which migration 0001 asks for but cannot
+create itself: a non-superuser role is not permitted to on Neon.
+
+Then run the migrations against the **unpooled** host. Neon's pooled endpoint is
+PgBouncer in transaction mode; the application's transaction-scoped work is fine
+through it, but DDL is safer direct. `PGHOST` for the running app can stay
+pooled.
+
 ## Environment variables
 
 Set per project. `.env.example` is the contract.
