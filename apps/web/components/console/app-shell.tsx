@@ -24,6 +24,7 @@ export function AppShell({
     { group: 'Work', links: [
       { href: '/app', label: 'Overview', key: 'overview' },
       { href: '/app/cases', label: 'Cases', key: 'cases', count: counts.cases },
+      { href: '/app/inbox', label: 'Inbox', key: 'inbox' },
       { href: '/app/tasks', label: 'Tasks', key: 'tasks', count: counts.tasks },
       { href: '/app/approvals', label: 'Approvals', key: 'approvals', count: counts.approvals },
     ]},

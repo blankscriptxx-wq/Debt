@@ -62,6 +62,22 @@ export default async function MessengerTab({
 
   const notes = entries.filter((e) => e['channel'] === 'internal-note');
   const messages = entries.filter((e) => e['channel'] !== 'internal-note');
+
+  // The same conversations the inbox works, linked rather than duplicated: an
+  // adviser in the case file should be able to reach the thread, and the two
+  // views must never be able to disagree about what was said.
+  const conversations = await query(session, async (db) => {
+    const r = await db.execute<Record<string, string | null>>(sql`
+      SELECT c.id, c.channel, c.counterparty_label, c.counterparty_identifier,
+             c.last_message_preview,
+             (SELECT count(*) FROM message_attachments a
+               JOIN documents d ON d.id = a.document_id
+              WHERE a.conversation_id = c.id AND d.status = 'unfiled')::text AS unfiled
+        FROM conversations c
+       WHERE c.case_id = ${id} AND c.status <> 'closed'
+       ORDER BY c.last_message_at DESC NULLS LAST`);
+    return r.rows;
+  });
   const unanswered = messages.filter((m) => m['direction'] === 'outbound').length
     - messages.filter((m) => m['direction'] === 'inbound').length;
 
@@ -131,6 +147,27 @@ export default async function MessengerTab({
           </Field>
         </Form>
       </Card>
+
+      {conversations.length > 0 && (
+        <Card title="Conversations"
+              subtitle="Live threads on this case. The inbox and the case file read the same messages, so they cannot disagree.">
+          <ul className="sv-list">
+            {conversations.map((c) => (
+              <li key={c['id']!}>
+                <a href={`/app/inbox?c=${c['id']}`}>
+                  {c['channel']} with {c['counterparty_label'] ?? c['counterparty_identifier']}
+                </a>
+                {' — '}
+                <span className="sv-muted">
+                  {c['unfiled'] !== '0'
+                    ? `${c['unfiled']} attachment${c['unfiled'] === '1' ? '' : 's'} waiting to be filed`
+                    : c['last_message_preview'] ?? 'no messages yet'}
+                </span>
+              </li>
+            ))}
+          </ul>
+        </Card>
+      )}
 
       <Card title="Correspondence"
             subtitle="Everything sent to or received from the client, and from creditors.">

@@ -86,6 +86,20 @@ export const AUDIT_ACTIONS = {
   'comms.message.received': { severity: 'info' },
   'comms.call.recorded': { severity: 'regulated' },
   'comms.note.added': { severity: 'info' },
+  // Linking is the moment a conversation becomes part of somebody's file, so
+  // it is where a mis-identification would be introduced. Recorded at security
+  // severity for the same reason a waiver is: it is a decision with a blast
+  // radius, and a file review needs to find it.
+  'comms.conversation.linked': { severity: 'security' },
+  'comms.conversation.unlinked': { severity: 'security' },
+  'comms.conversation.assigned': { severity: 'info' },
+  'comms.conversation.unassigned': { severity: 'info' },
+  'comms.conversation.status.changed': { severity: 'info' },
+  // Filing something a client sent into their case file. Notable rather than
+  // info because it changes what the case is evidenced by.
+  'comms.attachment.filed': { severity: 'notable' },
+  'comms.attachment.rejected': { severity: 'notable' },
+  'comms.attachment.quarantined': { severity: 'security' },
 
   // documents
   'document.uploaded': { severity: 'notable' },

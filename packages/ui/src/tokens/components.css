@@ -522,3 +522,197 @@
 }
 .sv-casehead__ref { font-family: var(--font-mono); font-size: var(--text-xs); }
 .sv-casehead__state { display: flex; gap: var(--space-2); }
+
+/* ------------------------------------------------------------------------- *
+ * The inbox.
+ *
+ * Three panes, because answering a client needs three things at once: what is
+ * waiting, what was said, and who this is. Each is a column rather than a page,
+ * which is the whole difference between this and a communication log.
+ * ------------------------------------------------------------------------- */
+.sv-inbox {
+  display: grid;
+  grid-template-columns: minmax(260px, 320px) minmax(0, 1fr) minmax(240px, 300px);
+  gap: var(--space-5);
+  align-items: start;
+  height: calc(100vh - var(--space-8) * 2);
+}
+
+.sv-inbox__list {
+  display: flex; flex-direction: column; gap: var(--space-3);
+  height: 100%; min-height: 0;
+}
+.sv-inbox__filters { display: flex; flex-wrap: wrap; gap: var(--space-1); }
+.sv-inbox__filter {
+  display: inline-flex; align-items: center; gap: var(--space-2);
+  padding: var(--space-2) var(--space-3); min-height: 36px;
+  border-radius: var(--radius-full); text-decoration: none;
+  font-size: var(--text-sm); color: var(--ink-muted);
+}
+.sv-inbox__filter:hover { background: var(--surface-raised); color: var(--ink); }
+.sv-inbox__filter--on { background: var(--accent-subtle); color: var(--accent); font-weight: 600; }
+.sv-inbox__filter:focus-visible { outline: 2px solid var(--accent); outline-offset: 2px; }
+.sv-inbox__filterCount { font-size: var(--text-2xs); font-variant-numeric: tabular-nums; }
+
+.sv-inbox__items {
+  list-style: none; margin: 0; padding: 0;
+  overflow-y: auto; min-height: 0; flex: 1;
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--surface);
+}
+.sv-inbox__empty { padding: var(--space-5); color: var(--ink-subtle); font-size: var(--text-sm); }
+.sv-inbox__item {
+  display: flex; flex-direction: column; gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+  border-bottom: 1px solid var(--border);
+  border-left: 3px solid transparent;
+  text-decoration: none; color: var(--ink);
+}
+.sv-inbox__item:hover { background: var(--surface-raised); }
+.sv-inbox__item--on { background: var(--surface-raised); border-left-color: var(--accent); }
+.sv-inbox__item:focus-visible { outline: 2px solid var(--accent); outline-offset: -2px; }
+/* Unread is weight, not a coloured dot: it survives being printed, being
+   colour-blind, and being glanced at from a metre away. */
+.sv-inbox__item--unread .sv-inbox__name { font-weight: 700; }
+.sv-inbox__item--unread .sv-inbox__preview { color: var(--ink); }
+
+.sv-inbox__who {
+  display: flex; align-items: baseline; gap: var(--space-2);
+  font-size: var(--text-sm);
+}
+.sv-inbox__channel { color: var(--ink-subtle); }
+.sv-inbox__name { flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis;
+                  white-space: nowrap; }
+.sv-inbox__when { font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-inbox__preview {
+  font-size: var(--text-xs); color: var(--ink-muted);
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.sv-inbox__marks { display: flex; flex-wrap: wrap; align-items: center; gap: var(--space-2); }
+.sv-inbox__ref { font-family: var(--font-mono); font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-inbox__owner { font-size: var(--text-2xs); color: var(--ink-subtle); }
+
+/* --- the conversation ----------------------------------------------------- */
+.sv-conv {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  height: 100%; min-height: 0; min-width: 0;
+}
+.sv-conv__head {
+  display: flex; justify-content: space-between; align-items: flex-start;
+  gap: var(--space-4); flex-wrap: wrap;
+}
+.sv-conv__title { margin: 0; font-size: var(--text-lg); font-weight: 650; }
+.sv-conv__sub {
+  display: flex; flex-wrap: wrap; gap: var(--space-3); margin: var(--space-1) 0 0;
+  font-size: var(--text-xs); color: var(--ink-muted);
+}
+.sv-conv__actions { display: flex; gap: var(--space-2); }
+.sv-conv__identify {
+  padding: var(--space-4); border: 1px solid var(--attention);
+  background: var(--attention-subtle); border-radius: var(--radius-lg);
+}
+.sv-conv__identifyForm { display: flex; gap: var(--space-2); margin-top: var(--space-3); }
+.sv-conv__identifyForm select { flex: 1; }
+
+.sv-thread {
+  flex: 1; min-height: 0; overflow-y: auto;
+  display: flex; flex-direction: column; gap: var(--space-3);
+  padding: var(--space-4); background: var(--surface-sunken);
+  border-radius: var(--radius-lg);
+}
+.sv-msg {
+  max-width: 68ch; padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-lg); background: var(--surface);
+  border: 1px solid var(--border);
+}
+.sv-msg--in { align-self: flex-start; border-bottom-left-radius: var(--radius-sm); }
+.sv-msg--out {
+  align-self: flex-end; background: var(--accent-subtle);
+  border-color: transparent; border-bottom-right-radius: var(--radius-sm);
+}
+/* An internal note must never be mistakable for something the client saw, so
+   it is a different shape, not a different shade. */
+.sv-msg--note {
+  align-self: stretch; max-width: none;
+  background: repeating-linear-gradient(
+    -45deg, var(--surface-raised), var(--surface-raised) 10px,
+    var(--surface) 10px, var(--surface) 20px);
+  border-style: dashed; border-color: var(--regulated);
+}
+.sv-msg__noteMark {
+  display: block; font-size: var(--text-2xs); font-weight: 700;
+  text-transform: uppercase; letter-spacing: 0.06em;
+  color: var(--regulated); margin-bottom: var(--space-1);
+}
+.sv-msg__body { margin: 0; font-size: var(--text-base); white-space: pre-wrap; }
+.sv-msg__meta {
+  display: flex; gap: var(--space-3); margin-top: var(--space-2);
+  font-size: var(--text-2xs); color: var(--ink-subtle);
+}
+.sv-msg__read { color: var(--accent); }
+
+.sv-composer {
+  display: flex; flex-direction: column; gap: var(--space-2);
+  padding: var(--space-4); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--surface);
+}
+.sv-composer__row {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: var(--space-4); flex-wrap: wrap;
+}
+.sv-composer__closed {
+  margin: 0; padding: var(--space-3); border-radius: var(--radius-md);
+  background: var(--attention-subtle); color: var(--attention);
+  font-size: var(--text-sm);
+}
+
+/* --- an attachment -------------------------------------------------------- */
+.sv-attach {
+  margin-top: var(--space-3); padding: var(--space-3);
+  border: 1px solid var(--border); border-radius: var(--radius-md);
+  background: var(--surface);
+}
+.sv-attach[draggable="true"] { cursor: grab; }
+.sv-attach--filed { border-color: var(--positive); }
+.sv-attach__head { display: flex; align-items: baseline; gap: var(--space-2); }
+.sv-attach__icon { color: var(--ink-subtle); }
+.sv-attach__name { font-weight: 600; font-size: var(--text-sm); flex: 1; min-width: 0;
+                   overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.sv-attach__size { font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-attach__state { margin: var(--space-2) 0 0; font-size: var(--text-xs); color: var(--ink-muted); }
+.sv-attach__state--bad { color: var(--critical); }
+.sv-attach__suggest {
+  margin: var(--space-2) 0; font-size: var(--text-xs); color: var(--ink);
+  display: flex; gap: var(--space-2); align-items: baseline; flex-wrap: wrap;
+}
+/* Shown rather than hidden: a classifier that always sounds certain teaches
+   people to stop reading it. */
+.sv-attach__confidence { font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-attach__row { display: flex; flex-wrap: wrap; gap: var(--space-2); align-items: flex-end; }
+.sv-attach__field { display: flex; flex-direction: column; gap: 2px; }
+.sv-attach__label { font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-attach__dismiss { margin-top: var(--space-2); }
+
+/* --- who this is ---------------------------------------------------------- */
+.sv-context {
+  display: flex; flex-direction: column; gap: var(--space-4);
+  height: 100%; min-height: 0; overflow-y: auto;
+}
+.sv-context__list { list-style: none; margin: 0; padding: 0;
+                    display: flex; flex-direction: column; gap: var(--space-3); }
+.sv-context__item { display: flex; flex-direction: column; gap: 2px; }
+.sv-context__itemHead {
+  display: flex; justify-content: space-between; gap: var(--space-2);
+  font-size: var(--text-sm); font-weight: 600;
+}
+.sv-context__why { font-size: var(--text-2xs); color: var(--ink-subtle);
+                   line-height: var(--leading-normal); }
+
+/* Below this there is not room for three columns, so they stack: what is
+   waiting, then the conversation, then the context. */
+@media (max-width: 1280px) {
+  .sv-inbox { grid-template-columns: minmax(0, 1fr); height: auto; }
+  .sv-inbox__items { max-height: 40vh; }
+  .sv-thread { max-height: 60vh; }
+  .sv-context { overflow: visible; }
+}

@@ -432,6 +432,8 @@ async function main() {
       }
     }
 
+    await seedConversations(db, adviserId);
+
     console.log(`  seeded ${SCENARIOS.length} cases`);
   });
 
@@ -790,3 +792,129 @@ main()
     await closeDatabase();
     process.exit(1);
   });
+
+/**
+ * A WhatsApp number for the firm, and two conversations on it.
+ *
+ * One is identified and has a bank statement waiting to be filed, which is the
+ * workflow the inbox exists for. The other is from a number nobody has
+ * confirmed, so it sits unidentified — because a demonstration where every
+ * message is already matched hides the decision that actually protects clients
+ * from each other.
+ */
+async function seedConversations(db: Database, adviserId: string): Promise<void> {
+  const existing = await db.execute<{ n: string }>(sql`
+    SELECT count(*)::text AS n FROM channel_accounts WHERE channel = 'whatsapp'`);
+  if (Number(existing.rows[0]!.n) > 0) return;
+
+  const account = await db.execute<{ id: string }>(sql`
+    INSERT INTO channel_accounts
+      (channel, identifier, display_name, provider_key, provider_account_id, queue,
+       simulated, connected_by, connected_at, out_of_office_message)
+    VALUES ('whatsapp', '+441132960100', 'Northgate advice line', 'sandbox-whatsapp',
+            'sandbox-pn-northgate', 'advice', true, ${adviserId}, now(),
+            'Thanks for your message. The advice team reads these between 9am and 5pm, Monday to Friday.')
+    RETURNING id`);
+  const accountId = account.rows[0]!.id;
+
+  // Elaine's case rather than Joanne's, deliberately: hers is mid fact-find with
+  // evidence still outstanding, so the attachment suggestion can be about what
+  // the case actually needs. A demonstration on a fully evidenced case shows a
+  // classifier guessing at a file name, which is the less interesting half.
+  const client = await db.execute<{ id: string; name: string; case_id: string | null }>(sql`
+    SELECT c.id, c.first_name || ' ' || c.last_name AS name,
+           (SELECT id FROM cases WHERE client_id = c.id AND status = 'open' LIMIT 1) AS case_id
+      FROM clients c WHERE c.reference = 'CL-0003'`);
+  if (!client.rows[0]) return;
+  const clientId = client.rows[0].id;
+  const caseId = client.rows[0].case_id;
+  const clientName = client.rows[0].name;
+
+  // A confirmed identity, which is what makes her messages route automatically.
+  await db.execute(sql`
+    INSERT INTO channel_identities (client_id, channel, identifier, verified_at, verified_by, source)
+    VALUES (${clientId}, 'whatsapp', '+447700900123', now() - interval '30 days',
+            ${adviserId}, 'adviser')
+    ON CONFLICT DO NOTHING`);
+
+  const known = await db.execute<{ id: string }>(sql`
+    INSERT INTO conversations
+      (channel_account_id, channel, counterparty_identifier, counterparty_label,
+       client_id, case_id, matched_by, matched_at, queue, status, assigned_to,
+       assigned_at, last_inbound_at, last_message_at, last_message_preview,
+       first_unread_at, reply_due_at)
+    VALUES (${accountId}, 'whatsapp', '+447700900123', ${clientName},
+            ${clientId}, ${caseId}, 'verified-identity', now() - interval '30 days',
+            'advice', 'open', ${adviserId}, now() - interval '2 hours',
+            now() - interval '2 hours', now() - interval '2 hours',
+            'Here is my bank statement, sorry it took a while',
+            now() - interval '2 hours', now() - interval '2 hours')
+    RETURNING id`);
+  const conversationId = known.rows[0]!.id;
+
+  for (const message of [
+    { direction: 'outbound', body: 'Hello — when you have a moment, could you send '
+      + 'a recent bank statement so we can finish your budget?',
+      at: "now() - interval '1 day'", status: 'read' },
+    { direction: 'inbound', body: 'Yes no problem, will do this evening', 
+      at: "now() - interval '20 hours'", status: 'received' },
+    { direction: 'inbound', body: 'Here is my bank statement, sorry it took a while',
+      at: "now() - interval '2 hours'", status: 'received' },
+  ]) {
+    const inserted = await db.execute<{ id: string }>(sql`
+      INSERT INTO communications
+        (conversation_id, case_id, client_id, channel, direction, counterparty_type,
+         counterparty_label, body, status, sent_by, sent_by_type, simulated, occurred_at)
+      VALUES (${conversationId}, ${caseId}, ${clientId}, 'whatsapp', ${message.direction},
+              'client', ${clientName}, ${message.body}, ${message.status},
+              ${message.direction === 'outbound' ? adviserId : null},
+              ${message.direction === 'outbound' ? 'user' : 'client'}, true,
+              ${sql.raw(message.at)})
+      RETURNING id`);
+
+    // The last message carries the statement, already received and scanned,
+    // waiting for somebody to say what it is.
+    if (message.body.startsWith('Here is my bank statement')) {
+      const document = await db.execute<{ id: string }>(sql`
+        INSERT INTO documents
+          (client_id, filename, content_type, byte_size, checksum_sha256, storage_key,
+           storage_provider, direction, uploaded_via, status, source_communication_id,
+           source_channel, retention_class)
+        VALUES (${clientId}, 'natwest-statement-july.pdf', 'application/pdf', 184_320,
+                repeat('a', 64), 'sandbox/natwest-statement-july.pdf', 'local', 'inbound',
+                'conversation', 'unfiled', ${inserted.rows[0]!.id}, 'whatsapp', 'case-file')
+        RETURNING id`);
+
+      await db.execute(sql`
+        INSERT INTO message_attachments
+          (communication_id, conversation_id, provider_media_id, provider_expires_at,
+           filename, content_type, byte_size, media_kind, ingest_status, ingested_at,
+           document_id)
+        VALUES (${inserted.rows[0]!.id}, ${conversationId}, 'media.sandbox-statement',
+                now() + interval '7 days', 'natwest-statement-july.pdf', 'application/pdf',
+                184_320, 'document', 'stored', now() - interval '2 hours',
+                ${document.rows[0]!.id})`);
+    }
+  }
+
+  // And one from a number nobody has confirmed, which is the case that needs a
+  // person and is the reason the matching rule is deliberately cautious.
+  const unknown = await db.execute<{ id: string }>(sql`
+    INSERT INTO conversations
+      (channel_account_id, channel, counterparty_identifier, counterparty_label,
+       queue, status, last_inbound_at, last_message_at, last_message_preview,
+       first_unread_at, reply_due_at)
+    VALUES (${accountId}, 'whatsapp', '+447700900788', '07700 900788', 'advice', 'open',
+            now() - interval '35 minutes', now() - interval '35 minutes',
+            'Hi, I was given this number by the council. Can someone help me with my debts?',
+            now() - interval '35 minutes', now() - interval '35 minutes')
+    RETURNING id`);
+
+  await db.execute(sql`
+    INSERT INTO communications
+      (conversation_id, channel, direction, counterparty_type, counterparty_label,
+       body, status, sent_by_type, simulated, occurred_at)
+    VALUES (${unknown.rows[0]!.id}, 'whatsapp', 'inbound', 'third-party', '07700 900788',
+            'Hi, I was given this number by the council. Can someone help me with my debts?',
+            'received', 'client', true, now() - interval '35 minutes')`);
+}

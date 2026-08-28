@@ -577,3 +577,94 @@ behaviour and was crying wolf.
 
 **Counts.** 410 unit and integration tests, 1 skipped. 204 browser and API
 checks across seven suites, twice in succession with identical results.
+
+## Communications: an inbox, and evidence that arrives by itself
+
+The communications model was good and had no product on top of it. One table for
+every channel since migration 0013, and no *conversation* — no thread, no owner,
+no unread state, nowhere to put something a client sent. A message log rather
+than somewhere to work.
+
+The research is in `docs/architecture/communications.md`, covering all seventeen
+points asked for. Three findings changed the design rather than decorating it.
+
+**Media ids in a WhatsApp webhook expire after about seven days**, and the
+download URL they yield lasts minutes. That single fact settles the attachment
+architecture: fetching when an adviser clicks "save" is a design that loses a
+client's bank statement a week later, and asking someone in difficulty to send it
+again is the sort of small failure that ends a case. So ingestion happens on
+receipt, without anybody asking.
+
+**Meta prohibits debt collection outright**, "irrespective of the global or local
+licenses, registrations, or other approvals your business may hold". Our users
+advise debtors rather than collect for creditors, and the use case is collecting
+documents — defensible, and not something enforcement will necessarily
+distinguish. The mitigations are architectural rather than hopeful: the firm owns
+the WhatsApp account and makes its own representation, and the inbox is
+channel-agnostic so a firm refused approval still gets the product over SMS,
+email and the portal.
+
+**The provider is not an architectural decision.** Templates, categories, rate
+limits and quality ratings are Meta's and reach every business solution provider
+identically, so the provider belongs behind an adapter and choosing one is
+configuration. 360dialog for EU hosting and a flat per-number fee when a firm
+goes live; everything ships as a simulator until then.
+
+### The part worth building the design around
+
+The case file already knows exactly what evidence each case is missing. So a
+document arriving on WhatsApp is not filed into a folder — it is offered against
+the requirement the case is waiting on, and accepting the suggestion moves the
+case in front of the adviser:
+
+> *"Looks like a creditor letter, and this case is waiting on debts and
+> creditors captured."* → **Save to case** → *"Filed, and the case now has
+> evidence for it. The spine has moved."*
+
+Nothing else in this market can do that, because nothing else has an evidence
+model to connect a document to.
+
+### Matching, and refusing to guess
+
+Filing one client's bank statement onto another client's case is a breach nobody
+notices, because nobody reads a document on the wrong file. So: a confirmed
+identity is a match, the number appearing on a client record is a *candidate*,
+and everything else waits for a person. Confirming creates the identity, so it
+costs one decision once. Household phones are shared and mobile numbers are
+recycled often enough that the cautious rule is the cheap one.
+
+The tenant is fixed by the number that *received* the message, never by the
+sender, so two firms holding the same client's number is not a collision — it is
+two conversations that cannot see each other, structurally rather than by a
+filter somebody has to remember.
+
+### What was built
+
+Migration 0023 (`channel_accounts`, `channel_identities`, `conversations`,
+`message_attachments`, document provenance), the domain modules in
+`packages/comms`, the WhatsApp adapter and a simulator that refuses free text
+outside the 24-hour window and refuses an unapproved template, a signed webhook
+endpoint, and the three-pane inbox with Save to Case.
+
+Five things in the interface were decided rather than defaulted: unread belongs
+to the conversation and not to each adviser, because per-person unread tells
+nobody whether the client has been answered; replying clears what is owed and an
+internal note does not; an internal note is a different *shape* rather than a
+different shade; the service window is a state shown before the adviser types
+rather than an error after they have written; and the classifier's confidence is
+shown, because one that always sounds certain teaches people to stop reading it.
+
+### Three test bugs worth naming
+
+All three were races where a wait matched something that was already true.
+`waitForURL(/saved=/)` matched instantly because the page already carried
+`saved=` from an earlier step. `waitForSelector('.sv-conv__title')` matched the
+conversation already on screen rather than the one just clicked. And the suite
+filed evidence, which is permanent, so its second run worked a case with nothing
+outstanding — it now picks a document type to match whatever the case is
+actually short of, and puts the requirement back through the product's own
+verification screen when it is done.
+
+**Counts.** 443 unit and integration tests, 1 skipped. 232 browser and API
+checks across eight suites; the new communications suite is 28 and runs twice in
+succession with identical results.
