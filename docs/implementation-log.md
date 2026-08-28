@@ -523,3 +523,57 @@ decision instead"*.
 **Counts.** 398 unit and integration tests, 1 skipped. 200 browser and API
 checks across seven suites; the case file suite is 49, covering the advice
 refusals, a recorded decision and a supersession that keeps its predecessor.
+
+## Opening a case
+
+The case file could be worked and not started. There was no way to create a case
+— or a client — anywhere in the console; only the public API could, and the
+answer to "how do we add new cases" was "you don't".
+
+The creation logic lived inline in the two API routes, which is why the console
+had nothing to call. It is `packages/core/src/casework/open-case.ts` now, with
+the API routes calling the same functions, because two copies of "what stage
+does a case start at" is how a firm ends up with cases that skip their own
+onboarding.
+
+Moving it exposed two defects in the code that was moved.
+
+**Configuration was being ignored.** References came from the first four
+characters of the case type key, so a breathing space was `BREA-0007` while its
+own definition said `BSP-{SEQ}`. Configuration the code ignores is worse than no
+configuration, because it looks settled.
+
+**References were allocated by counting rows.** That is wrong twice: a withdrawn
+case frees a number already printed on a letter, and two advisers creating a
+case in the same second read the same count and the second is rejected by the
+unique constraint. Allocation now reads the highest number actually used, under
+a transaction-scoped advisory lock on the prefix — the same lesson as the
+statement versioning, arrived at independently.
+
+The console flow is one screen, because in practice this is one conversation:
+someone has rung up and the adviser needs a file to put the call in. Splitting
+it into make-a-client, find-them-again, make-a-case is three screens for one
+intention and leaves half-made clients behind when the second step is abandoned.
+The client and the case are created in one transaction for the same reason.
+
+Two judgements in it. **Jurisdiction is asked up front**, not inferred, because
+it decides which solutions are lawfully available — and a Scottish remedy for a
+client in England is refused outright rather than opened and flagged, since it
+is not a data-entry slip but advice that could not lawfully be given. And **the
+case type is the process, not the solution**: a case opens as a fact find or a
+referral, and which solution to recommend is the advice decision, with its own
+screen, permission and record.
+
+**A 404 nobody had noticed.** The marketing suite's "no uncaught client errors"
+check failed roughly one run in three, and could only report *"the server
+responded with 404"* without saying what for — the response listener was
+attached to the first page and not to the three others the suite opens. Watching
+all four named it immediately: `/favicon.ico`. The site declares its icon
+properly, and Chromium probes `/favicon.ico` regardless, so every fresh visit
+took a 404. `app/favicon.ico` now carries the same mark as `icon.svg`, drawn by
+sampling the same curve rather than copying it by hand. The suite also stopped
+reporting abandoned link prefetches as failures, which is normal browser
+behaviour and was crying wolf.
+
+**Counts.** 410 unit and integration tests, 1 skipped. 204 browser and API
+checks across seven suites, twice in succession with identical results.

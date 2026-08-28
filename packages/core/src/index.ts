@@ -11,4 +11,5 @@ export * from './intelligence/signals.js';
 export * from './intelligence/compose.js';
 export * from './commercial/enquiry.js';
 export * from './evidence/state.js';
+export * from './casework/open-case.js';
 export * from './case-file/index.js';

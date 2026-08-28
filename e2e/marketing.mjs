@@ -36,14 +36,37 @@ const page = await browser.newPage({
 
 const errors = [];
 const missing = [];
-page.on('pageerror', (e) => errors.push(String(e)));
-page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
-page.on('response', (r) => {
-  if (r.status() !== 404) return;
-  const { pathname } = new URL(r.url());
-  missing.push(pathname);
-  errors.push(`404 ${pathname}`);
-});
+
+/**
+ * Watches one page for anything the browser complains about.
+ *
+ * Applied to every page the suite opens, not just the first. A failure that
+ * says only "the server responded with 404" and cannot say what was asked for
+ * is a failure nobody can act on — which is what this suite reported before the
+ * mobile, throttle and Control pages were watched too.
+ */
+function watch(target, label) {
+  target.on('pageerror', (e) => errors.push(`${label}: ${e}`));
+  target.on('console', (m) => {
+    if (m.type() === 'error') errors.push(`${label}: ${m.text()} @ ${m.location()?.url ?? '?'}`);
+  });
+  target.on('requestfailed', (r) => {
+    // A link prefetch that the browser abandons when you navigate away is
+    // normal, not a fault, and reporting it would make this check cry wolf on
+    // every run. Anything else — a refused connection, a DNS failure — is real.
+    const why = r.failure()?.errorText ?? '';
+    if (why.includes('ABORTED')) return;
+    errors.push(`${label}: request failed ${new URL(r.url()).pathname} (${why})`);
+  });
+  target.on('response', (r) => {
+    if (r.status() !== 404) return;
+    const { pathname } = new URL(r.url());
+    missing.push(`${label}${pathname}`);
+    errors.push(`${label}: 404 ${pathname}`);
+  });
+  return target;
+}
+watch(page, 'www');
 
 const marker = `e2e-${Date.now()}`;
 
@@ -130,10 +153,10 @@ try {
 
   // The throttle. Deliberately driven with submissions that fail validation, so
   // this asserts the limit without depositing five more rows.
-  const flooder = await browser.newPage({
+  const flooder = watch(await browser.newPage({
     viewport: { width: 1440, height: 960 },
     extraHTTPHeaders: { 'x-forwarded-for': `203.0.${octets()}` },
-  });
+  }), 'throttle');
   let throttled = '';
   for (let i = 0; i < 6; i += 1) {
     await flooder.goto(`${BASE}/contact`, { waitUntil: 'domcontentloaded' });
@@ -190,7 +213,8 @@ try {
 
   // And an operator can actually see it, through the console rather than a query.
   const CONTROL = `${BASE}/control`;
-  const control = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+  const control = watch(
+    await browser.newPage({ viewport: { width: 1440, height: 960 } }), 'control');
   await control.goto(`${CONTROL}/sign-in`, { waitUntil: 'domcontentloaded' });
   await control.fill('input[name=email]', 'operator@solvenda.test');
   await control.fill('input[name=password]', 'a perfectly reasonable passphrase');
@@ -207,7 +231,8 @@ try {
   await control.screenshot({ path: `${OUT}/25-control-enquiries.png`, fullPage: true });
 
   // Mobile.
-  const mobile = await browser.newPage({ viewport: { width: 390, height: 844 } });
+  const mobile = watch(
+    await browser.newPage({ viewport: { width: 390, height: 844 } }), 'mobile');
   for (const path of ['/', '/pricing', '/contact']) {
     await mobile.goto(`${BASE}${path}`, { waitUntil: 'domcontentloaded' });
     const overflow = await mobile.evaluate(

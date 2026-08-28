@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server';
-import { sql, type Database } from '@solvenda/db';
+import { sql } from '@solvenda/db';
+import { openCase, parseCaseTypeDefinition, CaseworkError } from '@solvenda/core';
 import { withApiKey, paginationFrom, apiError } from '@/lib/console/api';
 
 /**
@@ -56,7 +57,7 @@ export const GET = withApiKey('case:read', async (request, { db }) => {
  * be created by an API key, and accepting them here only to reject them later
  * would be worse than not offering the field.
  */
-export const POST = withApiKey('case:write', async (request, { db, ctx }) => {
+export const POST = withApiKey('case:write', async (request, { db, ctx, principal }) => {
   const body = await request.json().catch(() => null);
   if (!body || typeof body.clientId !== 'string' || typeof body.caseTypeKey !== 'string') {
     return apiError(400, 'invalid_request',
@@ -79,36 +80,21 @@ export const POST = withApiKey('case:write', async (request, { db, ctx }) => {
     return apiError(404, 'client_not_found', 'No client with that identifier.');
   }
 
-  const stages = caseType.rows[0].definition.stages ?? [];
-  const first = [...stages].sort((a, b) => a.order - b.order)[0]?.key ?? 'referral';
-
-  const reference = await nextReference(db, body.caseTypeKey);
-
-  const created = await db.execute<{ id: string; reference: string }>(sql`
-    INSERT INTO cases (reference, client_id, case_type_key, case_type_version, jurisdiction,
-                       stage, source)
-    VALUES (${reference}, ${body.clientId}, ${body.caseTypeKey}, ${caseType.rows[0].version},
-            ${client.rows[0].jurisdiction}, ${first}, ${body.source ?? 'api'})
-    RETURNING id, reference`);
-
-  const { recordAudit } = await import('@solvenda/audit');
-  await recordAudit(db, ctx, {
-    action: 'case.created', resourceType: 'case', resourceId: created.rows[0]!.id,
-    caseId: created.rows[0]!.id, source: 'api',
-    after: { reference: created.rows[0]!.reference, caseType: body.caseTypeKey },
-  });
-
-  return NextResponse.json(
-    { data: { id: created.rows[0]!.id, reference: created.rows[0]!.reference, stage: first } },
-    { status: 201 },
-  );
+  // Opening a case is the same operation here as in the console, so it is the
+  // same function. A second copy would be a second answer to "what stage does
+  // this start at" and "what is it referenced as".
+  try {
+    const opened = await openCase(db, ctx, principal, {
+      clientId: body.clientId,
+      caseType: parseCaseTypeDefinition(caseType.rows[0].definition),
+      caseTypeVersion: caseType.rows[0].version,
+      source: typeof body.source === 'string' ? body.source : 'api',
+    });
+    return NextResponse.json({ data: opened }, { status: 201 });
+  } catch (cause) {
+    if (cause instanceof CaseworkError) {
+      return apiError(422, 'cannot_open_case', cause.message);
+    }
+    throw cause;
+  }
 });
-
-/** Sequential per case type. Adequate at these volumes; a firm wanting a
- *  different scheme configures referenceFormat on the case type. */
-async function nextReference(db: Database, caseTypeKey: string): Promise<string> {
-  const prefix = caseTypeKey.toUpperCase().slice(0, 4);
-  const res = await db.execute<{ n: string }>(sql`
-    SELECT count(*)::text AS n FROM cases WHERE case_type_key = ${caseTypeKey}`);
-  return `${prefix}-${String(Number(res.rows[0]!.n) + 1).padStart(4, '0')}`;
-}

@@ -31,12 +31,15 @@ export default async function CasesPage({
         title={mine === '1' ? 'My cases' : 'All open cases'}
         meta={<span>{cases.length} shown{q ? ` matching “${q}”` : ''}</span>}
         actions={
-          <form method="get" style={{ display: 'flex', gap: 8 }}>
-            <input className="sv-input" name="q" defaultValue={q ?? ''}
-                   placeholder="Reference, name or postcode"
-                   style={{ width: 260 }} aria-label="Filter cases" />
-            <button className="sv-btn sv-btn--secondary sv-btn--md" type="submit">Filter</button>
-          </form>
+          <div style={{ display: 'flex', gap: 8, alignItems: 'center', flexWrap: 'wrap' }}>
+            <form method="get" style={{ display: 'flex', gap: 8 }}>
+              <input className="sv-input" name="q" defaultValue={q ?? ''}
+                     placeholder="Reference, name or postcode"
+                     style={{ width: 260 }} aria-label="Filter cases" />
+              <button className="sv-btn sv-btn--secondary sv-btn--md" type="submit">Filter</button>
+            </form>
+            <a className="sv-btn sv-btn--primary sv-btn--md" href="/app/cases/new">Open a case</a>
+          </div>
         }
       />
 

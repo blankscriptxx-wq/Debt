@@ -70,6 +70,43 @@ try {
   await page.locator('.sv-demo__btn', { hasText: 'Debt Adviser' }).click();
   await page.waitForURL(`${BASE}/app`, { timeout: 20000 });
 
+  // --- opening a case ------------------------------------------------------
+  // Before working a file, prove one can be started. The refusal below creates
+  // nothing; the case that is opened is left in place, since there is no
+  // closing it from the console yet and the other suites' assertions on case
+  // counts are all written as "at least".
+  await page.goto(`${BASE}/app/cases`, { waitUntil: 'domcontentloaded' });
+  await page.locator('a', { hasText: 'Open a case' }).first().click();
+  await page.waitForURL(/\/cases\/new/, { timeout: 20000 });
+  check('every active case type can be opened',
+        await page.locator('select[name=caseTypeKey] option').count() - 1 >= 5,
+        `${await page.locator('select[name=caseTypeKey] option').count() - 1} case types`);
+
+  // A trust deed is a Scottish remedy. Offering it to a client in England is
+  // not a slip to fix later, so the case is refused rather than opened.
+  await page.fill('input[name=firstName]', `Opened${stamp}`);
+  await page.fill('input[name=lastName]', 'Bysuite');
+  await page.selectOption('select[name=jurisdiction]', 'england-wales');
+  await page.selectOption('select[name=caseTypeKey]', 'trust-deed');
+  await page.click('form.sv-form button[type=submit]');
+  await page.waitForURL(/error=|\/cases\/[0-9a-f-]{36}/, { timeout: 20000 });
+  check('a solution the client\'s jurisdiction does not offer is refused',
+        (await page.locator('.sv-form__result').first().innerText()).includes('not available in'),
+        (await page.locator('.sv-form__result').first().innerText()).slice(0, 90));
+
+  await page.fill('input[name=firstName]', `Opened${stamp}`);
+  await page.fill('input[name=lastName]', 'Bysuite');
+  await page.selectOption('select[name=caseTypeKey]', 'dmp');
+  await page.click('form.sv-form button[type=submit]');
+  await page.waitForURL(/\/cases\/[0-9a-f-]{36}/, { timeout: 20000 });
+  await page.waitForSelector('.sv-spine', { timeout: 20000 });
+  const opened = await page.locator('.sv-casehead').innerText();
+  check('the new case opens at the case type\'s first stage, on its own file',
+        opened.includes('referral') && opened.includes('DMP-'),
+        opened.replace(/\n+/g, ' · ').slice(0, 90));
+  check('a brand new case still has a working spine',
+        await page.locator('.sv-spine__row').count() === 11);
+
   // DMP-9100 exists for this suite alone. Working a demonstration case here
   // would change the totals the console and client portal suites assert on and
   // reset the review date the overdue-review signal is derived from.
