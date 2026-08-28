@@ -1,0 +1,41 @@
+@import '@solvenda/ui/tokens.css';
+@import '@solvenda/ui/components.css';
+
+/* Solvenda Control shares the console's design language with a distinct
+   accent, so an operator is never in doubt about which system they are in. */
+:root { --accent: #6b3fa0; --accent-hover: #5a3488; --accent-subtle: #f2ecfa; }
+:root[data-theme='dark'] { --accent: #b48be0; --accent-subtle: #221a2e; }
+
+.ct-app { display: grid; grid-template-columns: 216px minmax(0, 1fr); min-height: 100vh; }
+.ct-sidebar {
+  background: var(--surface-raised); border-right: 1px solid var(--border);
+  padding: var(--space-4); display: flex; flex-direction: column; gap: var(--space-4);
+  position: sticky; top: 0; height: 100vh;
+}
+.ct-brand { font-weight: 650; letter-spacing: -0.02em; display: flex; align-items: center;
+            gap: var(--space-2); color: var(--ink); text-decoration: none; }
+.ct-brand__badge {
+  font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.06em;
+  background: var(--accent-subtle); color: var(--accent); padding: 1px 6px;
+  border-radius: var(--radius-full); font-weight: 600;
+}
+.ct-nav { display: flex; flex-direction: column; gap: 2px; }
+.ct-nav a {
+  padding: var(--space-2) var(--space-3); border-radius: var(--radius-md);
+  color: var(--ink-muted); text-decoration: none;
+}
+.ct-nav a:hover { background: var(--surface-sunken); color: var(--ink); }
+.ct-nav a[aria-current='page'] { background: var(--accent-subtle); color: var(--accent);
+                                 font-weight: 550; }
+.ct-main { padding: var(--space-6); max-width: var(--layout-max); }
+.ct-warning {
+  padding: var(--space-4); border-radius: var(--radius-md);
+  background: var(--attention-subtle); color: var(--attention);
+  border: 1px solid var(--attention); margin-bottom: var(--space-5);
+}
+@media (max-width: 900px) {
+  .ct-app { grid-template-columns: minmax(0, 1fr); }
+  .ct-sidebar { position: static; height: auto; }
+  .ct-main { padding: var(--space-4); }
+}
+html, body { max-width: 100%; overflow-x: hidden; }

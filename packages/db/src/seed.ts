@@ -23,16 +23,32 @@ async function main() {
   const { CASE_TYPE_TEMPLATES } = await import('../../core/src/index.js');
   const { CAPABILITIES } = await import('../../ai/src/index.js');
   const { WORKFLOW_TEMPLATES } = await import('../../workflow/src/index.js');
+  const { publishProviderCatalogue, installIntegration } =
+    await import('../../integrations/src/index.js');
 
-  const operatorId = randomUUID();
+  const operatorPasswordHash = await hashPassword(ADMIN_PASSWORD);
+  const OPERATOR_EMAIL = 'operator@solvenda.test';
+
+  // Re-running the seed must be safe. Reuse the operator if one already exists,
+  // rather than minting a new id and colliding on the unique email.
+  const operatorId = await withPlatform(
+    { operatorId: '00000000-0000-0000-0000-000000000000', reason: 'seed operator lookup' },
+    async (db) => {
+      const existing = await db.execute<{ id: string }>(sql`
+        SELECT id FROM platform_operators WHERE email = ${OPERATOR_EMAIL}`);
+      return existing.rows[0]?.id ?? null;
+    },
+  ).catch(() => null) ?? randomUUID();
 
   // --- platform reference data ---------------------------------------------
   await withPlatform({ operatorId, reason: 'seed platform catalogues' }, async (db) => {
     await db.execute(sql`
       INSERT INTO platform_operators (id, email, full_name, password_hash, operator_role)
-      VALUES (${operatorId}, ${`seed-${operatorId}@solvenda.invalid`}, 'Seed Operator',
-              'not-a-real-hash', 'admin')
-      ON CONFLICT (email) DO NOTHING`);
+      VALUES (${operatorId}, ${OPERATOR_EMAIL}, 'Platform Operator',
+              ${operatorPasswordHash}, 'admin')
+      ON CONFLICT (email) DO UPDATE
+        SET password_hash = EXCLUDED.password_hash,
+            full_name = EXCLUDED.full_name`);
 
     for (const p of PERMISSIONS) {
       await db.execute(sql`
@@ -64,6 +80,24 @@ async function main() {
                 ${c.producesProposals}, ${c.touchesRegulatedFields}, ${c.defaultEnabled})
         ON CONFLICT (key) DO UPDATE SET description = EXCLUDED.description`);
     }
+    await publishProviderCatalogue(db);
+
+    for (const plan of PLANS) {
+      await db.execute(sql`
+        INSERT INTO plans (key, name, description, platform_fee_pence, per_seat_pence,
+                           included_seats, features, usage_terms, minimum_term_months,
+                           support_tier, sort_order)
+        VALUES (${plan.key}, ${plan.name}, ${plan.description}, ${plan.platformFeePence},
+                ${plan.perSeatPence}, ${plan.includedSeats},
+                ARRAY(SELECT jsonb_array_elements_text(${JSON.stringify(plan.features)}::jsonb)),
+                ${JSON.stringify(plan.usageTerms)}::jsonb, ${plan.minimumTermMonths},
+                ${plan.supportTier}, ${plan.sortOrder})
+        ON CONFLICT (key) DO UPDATE
+          SET platform_fee_pence = EXCLUDED.platform_fee_pence,
+              per_seat_pence = EXCLUDED.per_seat_pence,
+              features = EXCLUDED.features`);
+    }
+
     await db.execute(sql`
       INSERT INTO sfs_rulesets (version, source, effective_from, trigger_figures, notes)
       VALUES ('placeholder-2026', 'placeholder', '2026-04-01',
@@ -132,6 +166,21 @@ async function main() {
         INSERT INTO ai_capabilities (capability_key, enabled)
         VALUES (${c.key}, ${c.defaultEnabled})
         ON CONFLICT (tenant_id, capability_key) DO NOTHING`);
+    }
+
+    const firmPrincipal = {
+      kind: 'user' as const, tenantId, userId: adviserId,
+      permissions: new Set(['integration:configure', 'case:read']),
+      competencies: [], mfaSatisfied: true, status: 'active' as const,
+    };
+    for (const [providerKey, secrets] of [
+      ['sandbox-open-banking', { clientId: 'dev', clientSecret: 'dev' }],
+      ['sandbox-identity', { apiKey: 'dev' }],
+      ['sandbox-e-signature', { apiKey: 'dev' }],
+    ] as const) {
+      await installIntegration(db, { tenantId, userId: adviserId, actorType: 'user',
+                                     actorLabel: 'seed' }, firmPrincipal,
+        { providerKey, secrets });
     }
 
     const alreadySeeded = await db.execute<{ n: string }>(sql`
@@ -280,8 +329,71 @@ async function main() {
   console.log(`  firm:     ${FIRM_SLUG}`);
   console.log(`  email:    joanne.whitfield@example.test`);
   console.log(`  password: ${ADMIN_PASSWORD}`);
+  console.log(`\nSolvenda Control:`);
+  console.log(`  email:    ${OPERATOR_EMAIL}`);
+  console.log(`  password: ${ADMIN_PASSWORD}`);
   console.log(`\nSet SOLVENDA_SIGNIN_OPERATOR_ID=${operatorId} for the sign-in lookup.`);
 }
+
+/**
+ * The commercial model, as configuration.
+ *
+ * Positioned as business-critical enterprise software rather than a per-seat
+ * tool: a platform fee that reflects what the system replaces, seats on top,
+ * and usage metered where our cost is genuinely variable (AI tokens, Open
+ * Banking calls, messages, storage). Figures are the recommended starting
+ * position from docs/commercial/pricing.md, not observed contract values -
+ * private vendors in this market do not publish.
+ */
+const PLANS = [
+  {
+    key: 'practice', name: 'Practice', sortOrder: 1,
+    description: 'For a single-office firm establishing itself. Core case management, ' +
+      'one jurisdiction, standard support.',
+    platformFeePence: 95_000, perSeatPence: 9_500, includedSeats: 5,   // £950 / £95
+    features: ['case-management', 'client-portal', 'workflows', 'standard-reporting'],
+    usageTerms: {
+      'ai.tokens': { included: 0, note: 'Case Intelligence narrative only' },
+      'open-banking.calls': { includedPerMonth: 250, overagePence: 45 },
+      'comms.messages': { includedPerMonth: 2_000, overagePence: 4 },
+      'storage.gb': { includedGb: 50, overagePencePerGb: 60 },
+    },
+    minimumTermMonths: 12, supportTier: 'standard',
+  },
+  {
+    key: 'firm', name: 'Firm', sortOrder: 2,
+    description: 'For a multi-team firm running several solutions. Every case type, ' +
+      'full AI layer, compliance and QA, priority support.',
+    platformFeePence: 285_000, perSeatPence: 8_500, includedSeats: 20, // £2,850 / £85
+    features: ['case-management', 'client-portal', 'workflows', 'ai-intelligence',
+               'ai-qa', 'compliance-monitoring', 'creditor-portal', 'introducer-portal',
+               'public-api', 'advanced-reporting'],
+    usageTerms: {
+      'ai.tokens': { includedPencePerMonth: 40_000, overageMultiplier: 1.4 },
+      'open-banking.calls': { includedPerMonth: 2_500, overagePence: 38 },
+      'comms.messages': { includedPerMonth: 25_000, overagePence: 3 },
+      'storage.gb': { includedGb: 500, overagePencePerGb: 50 },
+    },
+    minimumTermMonths: 24, supportTier: 'priority',
+  },
+  {
+    key: 'enterprise', name: 'Enterprise', sortOrder: 3,
+    description: 'For a group operating at scale across jurisdictions. Everything in Firm, ' +
+      'plus SSO, custom retention, a named contact and contractual service levels.',
+    platformFeePence: 750_000, perSeatPence: 7_000, includedSeats: 75, // £7,500 / £70
+    features: ['case-management', 'client-portal', 'workflows', 'ai-intelligence',
+               'ai-qa', 'compliance-monitoring', 'creditor-portal', 'introducer-portal',
+               'public-api', 'advanced-reporting', 'sso', 'custom-retention',
+               'sandbox-environment', 'migration-service'],
+    usageTerms: {
+      'ai.tokens': { includedPencePerMonth: 200_000, overageMultiplier: 1.25 },
+      'open-banking.calls': { includedPerMonth: 15_000, overagePence: 30 },
+      'comms.messages': { includedPerMonth: 150_000, overagePence: 2 },
+      'storage.gb': { includedGb: 2_000, overagePencePerGb: 40 },
+    },
+    minimumTermMonths: 36, supportTier: 'enterprise',
+  },
+] as const;
 
 const PLACEHOLDER_TRIGGERS = {
   'food-and-housekeeping': { '1': 30_000, '2': 45_000, '3': 55_000, '4+': 65_000 },
