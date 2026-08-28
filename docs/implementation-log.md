@@ -82,3 +82,187 @@ every scope and a workflow explicitly granted the permission.
 Field-level encryption for special category data.
 
 **Tests.** 94 passing against real Postgres.
+
+---
+
+## W2 — Domain core
+
+Case types became data. `case_type_definitions` carries stages, required
+evidence, eligibility rules, compliance rules, review cadence and jurisdiction
+as JSON validated against a schema, and eight UK solutions ship as templates:
+DMP, IVA, DRO, bankruptcy, Breathing Space, protected trust deed, sequestration
+and DAS. The claim that adding a case type needs no schema change is tested by
+defining an entirely novel one at runtime and driving it through the same
+engines.
+
+Statutory thresholds live in a threshold configuration rather than in source,
+and a case records which version was in force when it was assessed — the
+property that matters at a file review two years later, not at the moment of
+assessment.
+
+The SFS engine treats statements as immutable snapshots. Correcting a figure
+supersedes rather than edits. The shipped trigger figures are explicitly
+placeholders; the real spending guidelines are licensed content a firm supplies.
+
+Advice decisions cannot be recorded without a current statement, an eligibility
+evaluation, the options considered and a reason for rejecting each. A trigger
+refuses later edits to the substance.
+
+**What broke.** The `distributePence` test expectation was wrong — mine, not the
+code's. Largest-remainder distribution of £100 across 7/3.5/1.75 shares
+correctly gives `[5714, 2857, 1429]`, and I had written what I expected rather
+than what the algorithm defines. Worth recording because the failure mode was
+trusting my arithmetic over the implementation's.
+
+**Not done.** Cashiering and client money.
+
+## W3 / W4 — Case Intelligence and the AI layer
+
+Case Intelligence composes case health, advice readiness, next best action,
+affordability change, declared-vs-observed discrepancies, vulnerability
+indicators, compliance risk, engagement, deadlines and creditor changes — each
+signal traceable to the records it came from. The browser suite asserts that
+every signal displays its sources.
+
+The AI layer went in behind four gates: a per-capability field allowlist, a
+declared output schema enforced by strict tool use, proposals rather than
+writes, and a full invocation record naming the records the context was built
+from. Eight capabilities are built; the rest of the brief's list is specified
+with permitted fields and output shapes but not implemented, and is counted as
+not implemented.
+
+**What broke.**
+
+1. `extract(month FROM age(…))` returns the *month component*, not total months.
+   A review 13 months overdue reported as 1 and the overdue-review signal never
+   fired. Now `years * 12 + months`. The bug was invisible in testing because
+   every fixture was under a year old.
+2. Disengagement only counted clients who had replied at least once. A client
+   who has never responded is at least as disengaged as one who stopped, and was
+   the case the signal most needed to catch. It now runs from the earliest
+   unanswered outbound contact.
+
+**Not done.** Call transcription, document classification and extraction, bank
+transaction categorisation, complaint-risk signalling, natural-language search,
+management intelligence. Acceptance-rate feedback into capability tuning.
+
+## W5 / W6 — Workflow engine and communications
+
+Nine step types, versioned definitions, durable Postgres-backed runs claimed
+with `FOR UPDATE SKIP LOCKED`, idempotency per step, and the brief's bank-data
+example shipped as a tested template.
+
+**What broke.** Resume-after-approval took the step's `next` pointer
+unconditionally, so a *rejected* approval continued down the approved path. The
+engine silently overrode the person the gate existed to capture — the single
+most serious defect found in this build, because it defeated a control while
+appearing to honour it. Resume now reads the decision and routes on it, with a
+test for rejection specifically.
+
+Communications are one model across email, SMS, letter, portal message,
+telephony and internal note, with channel-preference enforcement and a statutory
+override. Every channel is a simulator.
+
+## W7 — Portals
+
+Adviser console, client PWA and Solvenda Control are built and driven by browser
+suites against real servers. Creditor and introducer portals exist as permission
+sets and data model only, and are described that way rather than counted.
+
+**What broke.** Four bugs that no unit test would have found, all caught by
+driving a real browser:
+
+1. **Sign-out was a GET behind a sidebar link.** Next prefetches links, so
+   *rendering the navigation* revoked the session and bounced the user to the
+   login screen. Now a POST form in all three authenticated apps.
+2. `grid-template-columns: 1fr` is min-content, so a wide table forced the page
+   wider than a phone viewport. Fixed with `minmax(0, 1fr)` plus
+   `overflow-x: hidden` on html and body.
+3. `currentSession` swallowed every error as "not signed in", turning a database
+   fault into a silent login loop. It logs and rethrows now.
+4. A sign-out button under the 44px touch-target minimum in the client portal.
+
+## W8 / W9 — Compliance, QA and Solvenda Control
+
+Compliance rules are declarative expressions in the case type definition,
+evaluated by a deliberately non-Turing-complete engine where a missing fact is
+null rather than false and a rule that cannot be evaluated blocks rather than
+passes.
+
+Solvenda Control covers tenants, plans, integration providers, AI capabilities,
+support access grants, security activity, platform health and — added with the
+marketing site — public enquiries.
+
+**What broke.**
+
+1. Plan pricing: `285_000_00` was written intending £2,850 and stored £285,000.
+   Exactly the class of error the integer-pence discipline exists to prevent,
+   and it was caught only because a test asserted the *displayed* figure rather
+   than the stored integer. All plan figures are now asserted as rendered.
+2. The seed was not idempotent — it minted a new operator UUID each run and
+   collided on the unique email. It looks up by email first now.
+3. `app.schema_migrations` was owner-only, so the Control health page failed on
+   a permission error. Migration 0017 grants SELECT to `solvenda_platform`.
+
+**Not done.** Retention enforcement (policies are configuration; the deletion
+job is not built), legal hold, DSAR/erasure tooling, complaints handling, the QA
+reviewer queue and calibration, call monitoring.
+
+## W10 / W11 — Integrations, developer platform, analytics, migration
+
+Capability-shaped adapter contracts with a per-tenant registry and
+envelope-encrypted credentials. Five simulators, all labelled as simulated in
+the product. Versioned public API with generated OpenAPI, scoped keys, rate
+limits and signed webhooks; the documentation states which actions no key can
+ever perform, and a test proves a key holding every scope is still refused them.
+
+**What broke.**
+
+1. `app.integration_secret` had EXECUTE revoked from everyone, but the adapter
+   genuinely needs it. Migration 0015 grants it — and corrects an overclaiming
+   comment in 0014. The migration immutability guard **correctly refused** the
+   attempt to edit 0014 in place, which is the guard doing its job.
+2. The Anthropic SDK at 0.71 had types too old for adaptive thinking, strict
+   tool use and `stop_details`. Upgrading to 0.122 resolved all three.
+3. Playwright's `networkidle` never settles against a Next app. Every suite uses
+   `domcontentloaded` plus an explicit `waitForSelector`.
+
+## W12 — Marketing site, commercial model, documentation
+
+`apps/www`: eleven pages, no analytics or tracking scripts, every claim paired
+with its mechanism, and every page ending with what is not built. The browser
+suite asserts that no page carries an unearned claim — certification, customer
+count, award or regulatory approval.
+
+Pricing is published. The plan catalogue moved out of the seed script into
+`packages/db/src/plans.ts` so the seeded rows, Solvenda Control and the public
+page read one definition and cannot drift.
+
+The contact form writes to the database, which required the platform's only
+unauthenticated write path. `withPublic()` binds no tenant, no user and no
+platform context, and the application role holds INSERT on `platform_enquiries`
+and no SELECT — it cannot read back even the row it just wrote. Seven tests
+assert each denial.
+
+**What broke.** The first version of the server-validation browser test passed
+without testing anything: `type="email"` meant the browser blocked submission
+before the server saw it, and the wait selector matched an unrelated heading.
+The test now disables the form's own validation before submitting, which is the
+case the server is actually defending against.
+
+**Not done.** Billing and invoicing. Domain registration and trade-mark
+clearance for Solvenda are outstanding — the brand is provisional.
+
+---
+
+## Final state
+
+- **342 unit and integration tests**, 1 skipped (the tamper test, which skips
+  loudly when superuser credentials are absent), against real Postgres.
+- **129 browser and API checks** across five suites driving real running
+  servers: console 28, client portal 16, Control 20, public API 20,
+  marketing 45.
+- 19 immutable migrations, 67 tables, 47 permissions of which 10 are regulated.
+
+An earlier commit message in this branch said "333 tests" when the count was
+313. The figures above are the accurate ones.

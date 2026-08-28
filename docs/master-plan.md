@@ -21,17 +21,22 @@ what was actually done, including what broke and why.
 |---|---|---|
 | W0 | Research, competitor matrix, regulatory dossier, brand | Complete |
 | W1 | Foundations: monorepo, RLS tenant isolation, auth, audit ledger | Complete |
-| W2 | Domain core: config-driven case types, SFS engine, advice | In progress |
-| W3 | Case Intelligence | Pending |
-| W4 | AI layer with approval gates | Pending |
-| W5 | Workflow engine | Pending |
-| W6 | Communications centre | Pending |
-| W7 | Portals | Pending |
-| W8 | Compliance and QA | Pending |
-| W9 | Solvenda Control (platform administration) | Pending |
-| W10 | Integrations framework and developer platform | Pending |
-| W11 | Analytics and migration | Pending |
-| W12 | Marketing site, commercial model, final report | Pending |
+| W2 | Domain core: config-driven case types, SFS engine, advice | Complete |
+| W3 | Case Intelligence | Complete |
+| W4 | AI layer with approval gates | Complete (8 of ~20 capabilities built; rest specified) |
+| W5 | Workflow engine | Complete |
+| W6 | Communications centre | Complete (channels are simulators) |
+| W7 | Portals | Console, client and Control complete; creditor and introducer are permissions and data model only |
+| W8 | Compliance and QA | Partial — see `docs/architecture/compliance-and-audit.md` |
+| W9 | Solvenda Control (platform administration) | Complete |
+| W10 | Integrations framework and developer platform | Complete (five simulators, no live provider) |
+| W11 | Analytics and migration | Complete |
+| W12 | Marketing site, commercial model, final report | Complete |
+
+Nothing above is marked complete because a screen exists. Each was driven end to
+end against a real database, and the browser suites run against real servers.
+Where something is partial, the row says so and `docs/final-report.md` says what
+is missing.
 
 ## Definition of done
 
