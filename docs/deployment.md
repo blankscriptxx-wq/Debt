@@ -71,7 +71,7 @@ PgBouncer in transaction mode; the application's transaction-scoped work is fine
 through it, but DDL is safer direct. `PGHOST` for the running app can stay
 pooled.
 
-Verified against a provisioned Neon database: 21 migrations applied, 66 of 66
+Verified against a provisioned Neon database: 22 migrations applied, 71 of 71
 tables with row-level security enabled *and* forced, the registry showing 46
 tenant / 10 platform / 10 global, and the audit chain verifying across every
 event. The isolation properties were re-checked there rather than assumed to
@@ -169,4 +169,13 @@ limit in front of it.
 
 **Migrations do not run on deploy, by design.** They are immutable and
 checksummed, and running them automatically on every push would make a failed
-deploy a schema problem. Run `pnpm db:migrate` deliberately.
+deploy a schema problem. Run `pnpm db:migrate` deliberately — and run it
+*before* deploying code that depends on the new schema, not after. Vercel
+deploys on push, so the window between the two is a window in which production
+runs new code against an old database.
+
+That failure is not currently legible. Shipping the case file tabs without
+first applying `0022` left every case page returning `relation
+"household_members" does not exist` — a raw Postgres error surfacing as a 500,
+with nothing anywhere reporting that the database was a migration behind. The
+policy is right; the missing piece is a check that says so plainly.
