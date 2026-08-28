@@ -17,10 +17,10 @@ const check = (n, p, d='') => { checks.push({n,p:Boolean(p)}); console.log(`${p?
 for (const [label, expect] of [['Debt Adviser','Ruth'], ['Compliance Officer','Yewande'],
                                ['Firm Administrator','Priya']]) {
   const p = await b.newPage({ viewport: { width: 1440, height: 960 } });
-  await p.goto('http://127.0.0.1:3000/login', { waitUntil: 'domcontentloaded' });
+  await p.goto('http://127.0.0.1:3000/app/login', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('.sv-demo__btn');
   await p.locator('.sv-demo__btn', { hasText: label }).click();
-  await p.waitForURL('http://127.0.0.1:3000/', { timeout: 20000 });
+  await p.waitForURL('http://127.0.0.1:3000/app', { timeout: 20000 });
   await p.waitForSelector('.sv-page-header__title');
   const body = await p.locator('body').innerText();
   check(`console: one click signs in as ${label}`, body.includes(expect), expect);
@@ -28,7 +28,7 @@ for (const [label, expect] of [['Debt Adviser','Ruth'], ['Compliance Officer','Y
 }
 
 const p1 = await b.newPage({ viewport: { width: 1440, height: 960 } });
-await p1.goto('http://127.0.0.1:3000/login', { waitUntil: 'domcontentloaded' });
+await p1.goto('http://127.0.0.1:3000/app/login', { waitUntil: 'domcontentloaded' });
 check('console: six staff accounts offered', await p1.locator('.sv-demo__btn').count() === 6,
       `${await p1.locator('.sv-demo__btn').count()}`);
 await p1.close();
@@ -36,10 +36,10 @@ await p1.close();
 // Client portal.
 for (const [label, expect] of [['Joanne Whitfield','Joanne'], ['Elaine Crozier','Elaine']]) {
   const p = await b.newPage({ viewport: { width: 390, height: 844 } });
-  await p.goto('http://127.0.0.1:3001/sign-in', { waitUntil: 'domcontentloaded' });
+  await p.goto('http://127.0.0.1:3000/portal/sign-in', { waitUntil: 'domcontentloaded' });
   await p.waitForSelector('.sv-demo__btn');
   await p.locator('.sv-demo__btn', { hasText: label }).click();
-  await p.waitForURL('http://127.0.0.1:3001/', { timeout: 20000 });
+  await p.waitForURL('http://127.0.0.1:3000/portal', { timeout: 20000 });
   const body = await p.locator('body').innerText();
   check(`client portal: one click signs in as ${label}`, body.includes(expect));
   await p.close();
@@ -47,10 +47,10 @@ for (const [label, expect] of [['Joanne Whitfield','Joanne'], ['Elaine Crozier',
 
 // Control.
 const p2 = await b.newPage({ viewport: { width: 1440, height: 960 } });
-await p2.goto('http://127.0.0.1:3002/sign-in', { waitUntil: 'domcontentloaded' });
+await p2.goto('http://127.0.0.1:3000/control/sign-in', { waitUntil: 'domcontentloaded' });
 await p2.waitForSelector('.sv-demo__btn');
 await p2.locator('.sv-demo__btn').first().click();
-await p2.waitForURL('http://127.0.0.1:3002/', { timeout: 20000 });
+await p2.waitForURL('http://127.0.0.1:3000/control', { timeout: 20000 });
 await p2.waitForSelector('.sv-page-header__title');
 check('control: one click signs in as the operator',
       (await p2.locator('body').innerText()).includes('Health'));
@@ -59,7 +59,7 @@ await p2.close();
 
 // Marketing site is the front door.
 const p3 = await b.newPage({ viewport: { width: 1440, height: 960 } });
-await p3.goto('http://127.0.0.1:3003/', { waitUntil: 'domcontentloaded' });
+await p3.goto('http://127.0.0.1:3000/', { waitUntil: 'domcontentloaded' });
 check('www: header offers Sign in', await p3.locator('header a', { hasText: 'Sign in' }).count() === 1);
 await p3.click('header a:has-text("Sign in")');
 await p3.waitForURL(/\/sign-in/, { timeout: 15000 });

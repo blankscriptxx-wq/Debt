@@ -4,10 +4,12 @@
 
 ```
 apps/
-  console   Next.js 15  adviser, team leader and compliance staff        :3000
-  client    Next.js 15  the consumer portal, mobile-first PWA            :3001
-  admin     Next.js 15  Solvenda Control, platform operators             :3002
-  www       Next.js 15  the public marketing site                        :3003
+  web       Next.js 15  one application, four surfaces, one deployment
+              /          the public marketing site
+              /app       adviser, team leader and compliance staff
+              /portal    the consumer portal, mobile-first
+              /control   Solvenda Control, platform operators
+              /v1        the public API
 packages/
   db            schema, 19 immutable migrations, RLS policies, the only DB access
   auth          sessions, MFA, the permission catalogue, authorize()
@@ -22,7 +24,10 @@ packages/
   testing       tenant fixtures and the assertions the security suites are built from
 ```
 
-One language across the whole system, and one database. Postgres is not a
+One language across the whole system, one database, and one deployable. The
+four surfaces were four applications until they were merged: separate Vercel
+projects meant three of them were never deployed, and nothing surfaced that -
+the one project that did exist kept building successfully. Postgres is not a
 persistence layer here; it is where the security model lives.
 
 ## The five decisions everything else follows from

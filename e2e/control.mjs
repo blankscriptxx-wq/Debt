@@ -14,7 +14,7 @@ const OPERATOR_TOTP_SECRET = process.env.SEED_OPERATOR_TOTP_SECRET
 const OPERATOR_ID = process.env.SOLVENDA_SIGNIN_OPERATOR_ID
   ?? '00000000-0000-0000-0000-000000000001';
 
-const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3002';
+const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:3000') + '/control';
 const OUT = process.env.SHOT_DIR ?? '/tmp/shots';
 const checks = [];
 const check = (name, pass, detail = '') => {
@@ -64,7 +64,7 @@ try {
   await page.fill('input[name=password]', 'a perfectly reasonable passphrase');
   await page.fill('input[name=totp]', totpCodeAt(OPERATOR_TOTP_SECRET, Date.now()));
   await page.click('button[type=submit]');
-  await page.waitForURL(`${BASE}/`, { timeout: 20000 });
+  await page.waitForURL(BASE, { timeout: 20000 });
   await page.waitForSelector('.sv-page-header__title');
 
   const health = await page.locator('body').innerText();

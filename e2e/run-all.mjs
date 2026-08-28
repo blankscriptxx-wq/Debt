@@ -6,8 +6,9 @@
  * the client portal assert on. They are run in one process here so the API key
  * and sandbox client id are wired up once rather than remembered.
  *
- * Expects: console :3000, client :3001, Control :3002, www :3003, and a seeded
- * database. Set SOLVENDA_SIGNIN_OPERATOR_ID, which the seed prints.
+ * Expects one server on :3000 - the marketing site at /, the console at /app,
+ * the client portal at /portal and Control at /control - and a seeded database.
+ * Set SOLVENDA_SIGNIN_OPERATOR_ID, which the seed prints.
  */
 import { execFileSync } from 'node:child_process';
 

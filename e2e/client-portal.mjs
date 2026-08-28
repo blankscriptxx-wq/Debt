@@ -8,7 +8,7 @@
  */
 import { chromium, devices } from 'playwright';
 
-const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3001';
+const BASE = (process.env.BASE_URL ?? 'http://127.0.0.1:3000') + '/portal';
 const OUT = process.env.SHOT_DIR ?? '/tmp/shots';
 const checks = [];
 const check = (name, pass, detail = '') => {
@@ -32,7 +32,7 @@ try {
   await page.fill('input[name=email]', 'joanne.whitfield@example.test');
   await page.fill('input[name=password]', 'a perfectly reasonable passphrase');
   await page.click('button[type=submit]');
-  await page.waitForURL(`${BASE}/`, { timeout: 20000 });
+  await page.waitForURL(BASE, { timeout: 20000 });
   await page.waitForSelector('.cp-h1');
 
   const body = await page.locator('body').innerText();

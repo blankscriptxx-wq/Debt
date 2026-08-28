@@ -57,7 +57,7 @@ importers:
         specifier: ^2.1.8
         version: 2.1.9(@types/node@22.20.1)
 
-  apps/admin:
+  apps/web:
     dependencies:
       '@solvenda/ai':
         specifier: workspace:*
@@ -68,6 +68,9 @@ importers:
       '@solvenda/auth':
         specifier: workspace:*
         version: link:../../packages/auth
+      '@solvenda/comms':
+        specifier: workspace:*
+        version: link:../../packages/comms
       '@solvenda/core':
         specifier: workspace:*
         version: link:../../packages/core
@@ -80,138 +83,9 @@ importers:
       '@solvenda/ui':
         specifier: workspace:*
         version: link:../../packages/ui
-      next:
-        specifier: ^15.1.3
-        version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.5(@types/react@19.2.18)
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-
-  apps/client:
-    dependencies:
-      '@solvenda/audit':
-        specifier: workspace:*
-        version: link:../../packages/audit
-      '@solvenda/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@solvenda/comms':
-        specifier: workspace:*
-        version: link:../../packages/comms
-      '@solvenda/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@solvenda/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@solvenda/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
-      next:
-        specifier: ^15.1.3
-        version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.5(@types/react@19.2.18)
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-
-  apps/console:
-    dependencies:
-      '@solvenda/ai':
-        specifier: workspace:*
-        version: link:../../packages/ai
-      '@solvenda/audit':
-        specifier: workspace:*
-        version: link:../../packages/audit
-      '@solvenda/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@solvenda/comms':
-        specifier: workspace:*
-        version: link:../../packages/comms
-      '@solvenda/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@solvenda/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@solvenda/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       '@solvenda/workflow':
         specifier: workspace:*
         version: link:../../packages/workflow
-      next:
-        specifier: ^15.1.3
-        version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)
-      react:
-        specifier: ^19.0.0
-        version: 19.2.8
-      react-dom:
-        specifier: ^19.0.0
-        version: 19.2.8(react@19.2.8)
-    devDependencies:
-      '@types/node':
-        specifier: ^22.10.2
-        version: 22.20.1
-      '@types/react':
-        specifier: ^19.0.2
-        version: 19.2.18
-      '@types/react-dom':
-        specifier: ^19.0.2
-        version: 19.2.5(@types/react@19.2.18)
-      typescript:
-        specifier: ^5.7.2
-        version: 5.9.3
-
-  apps/www:
-    dependencies:
-      '@solvenda/audit':
-        specifier: workspace:*
-        version: link:../../packages/audit
-      '@solvenda/auth':
-        specifier: workspace:*
-        version: link:../../packages/auth
-      '@solvenda/core':
-        specifier: workspace:*
-        version: link:../../packages/core
-      '@solvenda/db':
-        specifier: workspace:*
-        version: link:../../packages/db
-      '@solvenda/ui':
-        specifier: workspace:*
-        version: link:../../packages/ui
       next:
         specifier: ^15.1.3
         version: 15.5.24(@types/node@22.20.1)(react-dom@19.2.8(react@19.2.8))(react@19.2.8)

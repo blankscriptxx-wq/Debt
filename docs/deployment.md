@@ -4,24 +4,36 @@ Four Next.js apps in one pnpm workspace, over one Postgres database. On Vercel
 that means **four projects against the same repository**, each with a different
 Root Directory, plus a managed Postgres instance they all point at.
 
-## Projects
+## One project
 
-| App | Root Directory | What it is | Public? |
-|---|---|---|---|
-| `apps/www` | `apps/www` | Marketing site | Yes |
-| `apps/console` | `apps/console` | Adviser and compliance console | Behind sign-in |
-| `apps/client` | `apps/client` | Consumer portal | Behind sign-in |
-| `apps/admin` | `apps/admin` | Solvenda Control | Behind sign-in |
+Everything is a single Next.js application at `apps/web`, so there is **one
+Vercel project, one domain and one build**:
 
-For each: framework preset **Next.js**, Root Directory as above, and **"Include
-source files outside of the Root Directory"** enabled — the apps import
-workspace packages from `packages/`, and without that setting the build cannot
-see them. Vercel detects `pnpm-workspace.yaml` and installs from the repository
-root; the default build command is correct.
+| Path | Surface |
+|---|---|
+| `/` | Marketing site — the only public part |
+| `/app` | Adviser console |
+| `/portal` | Client portal |
+| `/control` | Solvenda Control |
+| `/v1` | Public API |
+| `/api` | Internal endpoints the console calls |
 
-`transpilePackages` in each app's `next.config.mjs` already lists the workspace
-packages it uses, because they ship TypeScript source rather than built output.
-`serverExternalPackages: ['pg']` keeps the driver out of the client bundle.
+Project settings: framework **Next.js**, Root Directory **`apps/web`**, and
+**"Include source files outside of the Root Directory"** enabled, because the
+app imports workspace packages from `packages/`. `apps/web/vercel.json` pins the
+region to `lhr1`.
+
+This started as four Vercel projects, one per app, and that arrangement failed
+in a way worth recording: only the admin project was ever created, so three
+quarters of the work built and tested locally and appeared nowhere. A monorepo
+with one project per app needs every project to exist and be kept in step, and
+nothing tells you when one is missing — the deployments that do exist keep
+succeeding.
+
+The four stylesheets are namespaced (`mk-`, `sv-`, `cp-`, `ct-`) over the shared
+tokens, so merging them collided with nothing. It also fixed Control's sign-in
+page, which used `sv-login` classes that only existed in the console's
+stylesheet and had been rendering unstyled.
 
 ## Database
 

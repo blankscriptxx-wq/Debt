@@ -10,7 +10,7 @@
 import { chromium } from 'playwright';
 import { totpCodeAt } from '../packages/auth/src/totp.js';
 
-const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3003';
+const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3000';
 const OUT = process.env.SHOT_DIR ?? '/tmp/shots';
 
 const checks = [];
@@ -189,7 +189,7 @@ try {
   await closeDatabase();
 
   // And an operator can actually see it, through the console rather than a query.
-  const CONTROL = process.env.CONTROL_URL ?? 'http://127.0.0.1:3002';
+  const CONTROL = `${BASE}/control`;
   const control = await browser.newPage({ viewport: { width: 1440, height: 960 } });
   await control.goto(`${CONTROL}/sign-in`, { waitUntil: 'domcontentloaded' });
   await control.fill('input[name=email]', 'operator@solvenda.test');
@@ -198,7 +198,7 @@ try {
                      totpCodeAt(process.env.SEED_OPERATOR_TOTP_SECRET
                                 ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', Date.now()));
   await control.click('button[type=submit]');
-  await control.waitForURL(`${CONTROL}/`, { timeout: 20000 });
+  await control.waitForURL(CONTROL, { timeout: 20000 });
   await control.goto(`${CONTROL}/enquiries`, { waitUntil: 'domcontentloaded' });
   await control.waitForSelector('.sv-table tbody tr, .sv-empty');
   const inbox = await control.locator('body').innerText();
