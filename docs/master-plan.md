@@ -7,7 +7,7 @@ what was actually done, including what broke and why.
 
 | Decision | Choice | Rationale |
 |---|---|---|
-| Brand | Solvenda (provisional pending trade-mark clearance) | See `docs/brand/brand-book.md`; Keel failed clearance against a live FCA-authorised UK fintech |
+| Brand | Solvenda, as a working placeholder. Naming and branding **deferred by decision** | Not a launch prerequisite. Nothing structural carries the name — see `docs/final-report.md` §16 for the rename surface. `docs/brand/brand-book.md` records the screening that ruled out Keel |
 | Stack | TypeScript, Next.js 15, React 19, Postgres 16, Drizzle | One language across four apps; Postgres because the security model lives in the database |
 | Hosting | Vercel + managed Postgres, container-portable | User decision. Data-residency limits recorded as a production blocker |
 | Tenant isolation | Postgres RLS, FORCEd, non-owner app role | A forgotten filter must return nothing, not another firm's clients |

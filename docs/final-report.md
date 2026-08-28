@@ -273,8 +273,13 @@ outside them has a benchmark, including us.
 **Brand.** "Keel" was the first choice and **failed clearance** — a live
 FCA-authorised UK BaaS platform of that name came out of stealth in May 2026,
 plus a Companies House registration. Seven further candidates were screened and
-conflicted. Solvenda was selected. Trade-mark clearance (UK IPO classes 9/36/42)
-and domain registration are **outstanding**; the brand is provisional.
+conflicted. Solvenda was selected.
+
+**Naming and branding are deferred by decision.** Solvenda is a working
+placeholder, not a committed brand: trade-mark clearance (UK IPO classes
+9/36/42) and domain registration have not been done and are not being treated as
+launch prerequisites. What matters for the deferral is that it stays cheap to
+reverse, and it does — see section 16.
 
 The marketing site claims nothing unearned. No certifications, no partnerships,
 no customer counts, no regulatory approvals, no awards — and the browser suite
@@ -293,7 +298,9 @@ Ordered by what would stop a launch.
 3. Data processing agreements, and a decision on the residency gap below.
 4. An SFS membership: the shipped trigger figures are placeholders. Real spending
    guidelines are licensed content the firm supplies.
-5. Trade-mark clearance and domain registration for Solvenda.
+
+*Naming and branding are deliberately deferred and are not on this list. See
+"Naming" below.*
 
 **Security**
 6. An independent penetration test. None has been done.
@@ -361,7 +368,9 @@ See `docs/future-advantage.md`.
 - No penetration test, no ISO or SOC audit, no certifications of any kind.
 - No customers. No signed contracts. No validation of the pricing.
 - Solvenda is not FCA authorised and does not give debt advice.
-- The brand is provisional pending trade-mark clearance.
+- The name is a placeholder. Trade-mark clearance and domain registration have
+  not been done, by decision rather than oversight, and section 16 states what
+  a later rename costs.
 - UK-only data residency is not achievable on the chosen hosting.
 - SFS trigger figures are placeholders, not licensed content.
 - The competitor matrix is a reading of public information, compiled August 2026,
@@ -383,3 +392,50 @@ On completeness, it does not yet compete with Aryza Advize, and the reason is
 client money. A firm cannot run DMPs on software that cannot handle
 distributions. That is the honest state of it, and it is first on the roadmap
 rather than absent from it.
+
+---
+
+## 16. Naming: what deferring it costs
+
+Naming and branding are deferred by decision. That is a reasonable call — the
+name is the cheapest thing to change about a platform and the most expensive
+thing to argue about early. But "cheap" is not "free", and the cost is worth
+stating now rather than discovering it later.
+
+**Brand-neutral already, and deliberately so.** None of the structural
+decisions carry the name. The GUC namespace is `app.*`. The CSS class prefixes
+are `sv-`, `mk-`, `cp-` and `ct-` — initials, not words. Table names, column
+names, permission keys, capability keys, case type keys and audit actions are
+all domain vocabulary. A rename touches none of it.
+
+**What a rename would actually touch:**
+
+| Surface | Count | Difficulty |
+|---|---|---|
+| User-visible copy in the four apps | 22 references | Trivial — find and replace |
+| Marketing site content | 10 pages | Rewrite, but it is copy either way |
+| Workspace package names (`@solvenda/*`) | 16 `package.json` files | Mechanical: rename, update imports, reinstall |
+| Database role names (`solvenda_app`, `solvenda_owner`, `solvenda_platform`) | 50 references across `roles.sql` and 19 migrations | **The only real work** |
+| Environment variables (`SOLVENDA_*`) and database names | 4 names | Mechanical |
+
+**The database roles are the one genuinely awkward item**, and only because the
+migrations are immutable and checksummed — a guard that has already earned its
+place by refusing an edit to an applied file. The roles are named in `GRANT`
+statements throughout the migration history, and those files cannot be edited in
+place. Renaming them means either `ALTER ROLE … RENAME TO` in a new migration
+with the old names left in history (which works, and leaves the history
+honestly showing what was run at the time), or accepting that the internal role
+names simply do not match the eventual brand.
+
+**The recommendation: leave the roles alone whichever name is chosen.** Database
+role names are internal identifiers that no customer, auditor or regulator ever
+sees. Coupling them to a brand is what created this question in the first place,
+and renaming them a second time when the brand changes again would repeat it.
+If they are ever touched, rename them to something functional — `app_rw`,
+`schema_owner`, `platform_rw` — so the question never recurs.
+
+**What the deferral does not change.** Nothing in this build depends on the
+name being settled. The one place it would surface is a customer-facing
+document or a signed contract, and there are none. The deferral is safe to hold
+until there is a commercial reason to close it — and closing it then needs a
+trade-mark attorney and a fortnight, not an engineering project.

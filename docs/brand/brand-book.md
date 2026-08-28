@@ -45,6 +45,12 @@ Before commercial launch:
 
 Until those are done the name is **provisional**.
 
+> **Status: deferred by decision.** Naming and branding are not on the path to a
+> first customer and are not being worked on. Solvenda is a working placeholder.
+> Nothing structural in the platform carries the name — the rename surface is
+> measured in `docs/final-report.md` §16 — so this can be closed whenever there
+> is a commercial reason to, without an engineering project behind it.
+
 ## Positioning
 
 > **Solvenda is the operating system for regulated financial-difficulty services.**
