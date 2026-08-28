@@ -1,4 +1,9 @@
 -- Development and test databases, owned by the migration role.
+-- Both are created here rather than only the test one: the development database
+-- used to be assumed to exist because Compose happened to create it, which meant
+-- this file could not rebuild an environment from nothing.
+SELECT 'CREATE DATABASE solvenda_dev OWNER solvenda_owner'
+ WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'solvenda_dev') \gexec
 SELECT 'CREATE DATABASE solvenda_test OWNER solvenda_owner'
  WHERE NOT EXISTS (SELECT 1 FROM pg_database WHERE datname = 'solvenda_test') \gexec
 ALTER DATABASE solvenda_dev OWNER TO solvenda_owner;

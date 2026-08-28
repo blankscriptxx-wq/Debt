@@ -13,7 +13,7 @@
 import { execFileSync } from 'node:child_process';
 
 const SUITES = ['smoke', 'client-portal', 'control', 'public-api', 'marketing',
-                'demo-login'];
+                'demo-login', 'case-file'];
 
 const operatorId = process.env['SOLVENDA_SIGNIN_OPERATOR_ID'];
 if (!operatorId) {

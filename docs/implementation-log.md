@@ -309,3 +309,77 @@ depositing five more rows.
 **Final counts.** 342 unit and integration tests, 1 skipped. 130 browser and API
 checks: console 28, client portal 16, Control 20, public API 20, marketing 46.
 Both suites run twice in succession with identical results.
+
+## The adviser case file
+
+Solvenda could read a case and not work one. Every figure in the running
+platform came from the seed; grepping for `'use server'` across the console
+returned one file, the login page. The data model was strong and nothing could
+put anything into it.
+
+Eleven tabs now sit under `/app/cases/[id]` — client details, living
+arrangements, employment, assets, debts, income and expenditure, advice,
+verification, appointments, checklist and messenger — over one migration
+(`0022_case_file.sql`) and one module per subject in `packages/core/src/case-file/`.
+The pages stay thin because the domain functions are where the rules live, which
+is also what makes them testable without a browser.
+
+Three things were decided rather than defaulted:
+
+**Household composition bands on age, not on a "dependant" flag.** The SFS
+trigger figures change with the number and ages of children, so a 17-year-old in
+full-time education and a 22-year-old lodger cannot be the same record type.
+Entering a member without either a date of birth or an age is refused outright
+rather than assumed, because an assumed age silently changes what the client is
+assessed as being able to afford.
+
+**Equity is derived, never stored.** An asset holds its value, the debt secured
+on it and the client's share; the equity that DRO eligibility turns on is
+computed from those three. Storing it would let it drift away from its own
+inputs, and the number that decides whether a DRO is available is not a number
+to let drift.
+
+**Removing a debt withdraws it.** `status = 'removed'` rather than a delete: a
+creditor that turns out not to exist is still something the file should be able
+to explain later. Removed debts are excluded from every total.
+
+The advice tab is deliberately read-only. Recording a decision goes through
+`recordAdviceDecision`, which requires a rationale, the options considered and
+the reasons the rejected ones were rejected — that belongs in a purpose-built
+flow, not a tab of form fields beside an address editor.
+
+### Two bugs the work surfaced
+
+**Saving a statement collided with its own uniqueness rule.** `saveStatement`
+inserted the new version and then marked the old one superseded. Only one
+statement per case may be current, enforced by a partial unique index, so the
+insert failed against any case that already had one — every case in the product.
+The order is now retire, insert, then link the retired version to its
+replacement, all inside the one transaction the save already ran in.
+`packages/core/test/statement-entry.test.ts` covers it, and fails with the
+original constraint violation if the ordering is put back.
+
+**The suite spoiled the fixtures it shared.** The case file suite does not read a
+case, it works one — and working `DMP-0001` moved the totals the console and
+client portal suites assert on and reset the review date the overdue-review
+signal is derived from. Two suites failed, neither of them the new one. The seed
+now creates `DMP-9100` for this suite alone, on the same reasoning that produced
+`CL-9000` for the API suite, and the suite's assertions measure movement rather
+than absolute totals: it records a figure, adds something, and checks the figure
+moved by exactly what was entered. That is both repeatable and the stronger
+assertion — four-weekly pay of £500 has to raise monthly household income by
+£541.67, not merely display a plausible number.
+
+Three smaller things were wrong and are fixed: the seed's development-database
+guard read `PGDATABASE` directly and so refused to run when the variable was
+unset, even though the connection would have defaulted to `solvenda_dev`;
+`bootstrap/databases.sql` created the test database but assumed the development
+one already existed, so it could not rebuild an environment from nothing; and the
+"have I already seeded?" check counted every case, which the new fixture would
+have made permanently true.
+
+**Counts.** 371 unit and integration tests, 1 skipped. 187 browser and API
+checks across seven suites: console 28, client portal 16, Control 22, public API
+20, marketing 46, demo sign-in 9, case file 36. The full browser suite runs twice
+in succession with identical results, against a database the second run inherits
+from the first.

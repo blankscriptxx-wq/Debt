@@ -90,6 +90,7 @@ export default async function ClientDetailsTab({
           },
         }));
     } catch (cause) {
+      console.error('case file action failed', cause);
       const message = cause instanceof ClientValidationError
         ? cause.message
         : 'Could not save. Nothing was changed.';

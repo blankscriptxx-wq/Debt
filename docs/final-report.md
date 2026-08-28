@@ -12,10 +12,11 @@ advice, debt management and insolvency industry — AI-native, capable of
 competing with Aryza Advize/HubSolv and Trustlink, with the stated objective of
 making the current generation of debt-advice CRMs feel outdated.
 
-What exists now is a working multi-tenant platform: four applications, eleven
-packages, 67 tables across 19 immutable migrations, 342 unit and integration
-tests against real Postgres, and 130 browser and API checks driving real running
-servers. It is a deep, working vertical slice on enterprise foundations, not a
+What exists now is a working multi-tenant platform: one application serving the
+marketing site, the adviser console, the client portal and platform
+administration, eleven packages, 71 tables across 22 immutable migrations, 371
+unit and integration tests against real Postgres, and 187 browser and API checks
+driving real running servers. It is a deep, working vertical slice on enterprise foundations, not a
 demonstration with a database behind it — but it is not a product a regulated
 firm could be onboarded onto tomorrow, and section 12 says exactly why.
 
@@ -129,6 +130,7 @@ tenant, append-only at trigger level, with a verifier that locates a break.
 | Communications | Built; every channel is a simulator |
 | Compliance checks | Built |
 | QA | Capability built; reviewer queue and calibration partial |
+| Adviser case file: eleven tabs of data entry over the model | Built |
 | Analytics and dashboards | Built |
 | Migration framework | Built |
 | Public API, webhooks, API keys | Built |
@@ -417,10 +419,10 @@ all domain vocabulary. A rename touches none of it.
 
 | Surface | Count | Difficulty |
 |---|---|---|
-| User-visible copy in the four apps | 22 references | Trivial — find and replace |
+| User-visible copy across the four surfaces | 22 references | Trivial — find and replace |
 | Marketing site content | 10 pages | Rewrite, but it is copy either way |
 | Workspace package names (`@solvenda/*`) | 16 `package.json` files | Mechanical: rename, update imports, reinstall |
-| Database role names (`solvenda_app`, `solvenda_owner`, `solvenda_platform`) | 50 references across `roles.sql` and 19 migrations | **The only real work** |
+| Database role names (`solvenda_app`, `solvenda_owner`, `solvenda_platform`) | 50 references across `roles.sql` and 22 migrations | **The only real work** |
 | Environment variables (`SOLVENDA_*`) and database names | 4 names | Mechanical |
 
 **The database roles are the one genuinely awkward item**, and only because the

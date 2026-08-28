@@ -8,7 +8,8 @@
  * review, a vulnerable client, a case ready to advise.
  */
 import { randomUUID } from 'node:crypto';
-import { sql, withPlatform, withTenant, closeDatabase } from './client.js';
+import { sql, withPlatform, withTenant, closeDatabase, type Database } from './client.js';
+import { loadDbConfig } from './config.js';
 import { migrate } from './migrate.js';
 import { PLANS } from './plans.js';
 
@@ -23,7 +24,10 @@ const ADMIN_PASSWORD = process.env['SEED_ADMIN_PASSWORD'] ?? 'a perfectly reason
  * development or test one.
  */
 function assertDevelopmentDatabase(): void {
-  const name = process.env['PGDATABASE'] ?? '';
+  // Read the name the connection will actually use, not the raw variable: the
+  // database config supplies the same default when PGDATABASE is unset, and
+  // refusing on an unset variable rejected the ordinary local case.
+  const name = loadDbConfig().database;
   const looksLocal = /(_dev|_test|_local|development)$/.test(name);
   if (looksLocal || process.env['SEED_ALLOW_NON_DEV'] === '1') return;
   throw new Error(
@@ -243,6 +247,14 @@ async function main() {
               'sandbox.fixture@example.test', 'england-wales', 1, 0, 'employed')
       ON CONFLICT (tenant_id, reference) DO NOTHING`);
 
+    // And a client with a case, for the same reason one step further on. The
+    // case file suite does not read a case, it works one: it adds household
+    // members, employment, assets and debts and saves a new statement. Doing
+    // that to a demonstration case changes the totals the console and the
+    // client portal assert on, and moves the review date the overdue-review
+    // signal depends on. So it gets its own case to spoil.
+    await seedCaseworkFixture(db, adviserId);
+
     // Portal accounts are backfilled outside the case-seeding guard above, so
     // re-running the seed against a database that already has cases still
     // creates any account the demo sign-in expects.
@@ -267,8 +279,12 @@ async function main() {
       }
     }
 
+    // Counts demonstration cases specifically. The casework fixture above is
+    // also a case, so counting every row would make the seed think it had
+    // already run and skip the demonstration data entirely.
     const alreadySeeded = await db.execute<{ n: string }>(sql`
-      SELECT count(*)::text AS n FROM cases`);
+      SELECT count(*)::text AS n FROM cases
+       WHERE reference <> ${CASEWORK_FIXTURE_CASE}`);
     if (Number(alreadySeeded.rows[0]!.n) > 0) {
       console.log('  cases already present, leaving them alone');
       return;
@@ -485,6 +501,83 @@ const DEMO_STAFF = [
   { email: 'ip@northgate.test', name: 'Alastair Menzies', role: 'insolvency-practitioner',
     jobTitle: 'Insolvency Practitioner', competencies: ['debt-advice', 'insolvency'] },
 ] as const;
+
+/** The case the case file end-to-end suite works on, and works over. */
+const CASEWORK_FIXTURE_CASE = 'DMP-9100';
+
+/**
+ * A case that exists to be worked on by the case file end-to-end suite.
+ *
+ * It is deliberately plain — one client, one DMP case at assessment, two
+ * unsecured debts and a complete statement — because the suite's assertions are
+ * about movement rather than starting values: it records what a figure is, adds
+ * something, and checks the figure moved by the right amount. What it must not
+ * do is move figures that other suites assert on, hence a case of its own.
+ *
+ * Idempotent: re-running the seed leaves an existing fixture alone, including
+ * everything a previous suite run added to it.
+ */
+async function seedCaseworkFixture(db: Database, adviserId: string): Promise<void> {
+  const existing = await db.execute<{ id: string }>(sql`
+    SELECT id FROM cases WHERE reference = ${CASEWORK_FIXTURE_CASE}`);
+  if (existing.rows[0]) return;
+
+  const client = await db.execute<{ id: string }>(sql`
+    INSERT INTO clients (reference, first_name, last_name, date_of_birth, email,
+                         phone_mobile, address_line1, address_city, address_postcode,
+                         jurisdiction, household_adults, household_children,
+                         employment_status)
+    VALUES ('CL-9100', 'Casework', 'Fixture', '1979-06-04',
+            'casework.fixture@example.test', '07700 900910', '4 Sandal Rise',
+            'Wakefield', 'WF2 7QP', 'england-wales', 1, 0, 'employed')
+    ON CONFLICT (tenant_id, reference) DO UPDATE SET updated_at = now()
+    RETURNING id`);
+  const clientId = client.rows[0]!.id;
+
+  const kase = await db.execute<{ id: string }>(sql`
+    INSERT INTO cases (reference, client_id, case_type_key, case_type_version, jurisdiction,
+                       stage, status, owner_user_id, source, next_review_due, stage_entered_at)
+    VALUES (${CASEWORK_FIXTURE_CASE}, ${clientId}, 'dmp', 1, 'england-wales', 'assessment', 'open',
+            ${adviserId}, 'direct', now() + interval '60 days', now() - interval '3 days')
+    RETURNING id`);
+  const caseId = kase.rows[0]!.id;
+
+  for (const debt of [
+    { creditor: 'Calder Bank Card', balance: 312_400, type: 'unsecured' },
+    { creditor: 'Ridgeway Catalogue', balance: 87_600, type: 'unsecured' },
+  ]) {
+    await db.execute(sql`
+      INSERT INTO debts (case_id, client_id, creditor_name, balance_pence, arrears_pence,
+                         debt_type, is_priority, provenance)
+      VALUES (${caseId}, ${clientId}, ${debt.creditor}, ${debt.balance}, 0,
+              ${debt.type}, false, 'client-declared')`);
+  }
+
+  const statement = await db.execute<{ id: string }>(sql`
+    INSERT INTO financial_statements (case_id, client_id, version, status, ruleset_version,
+                                      total_income_pence, total_expenditure_pence,
+                                      surplus_pence, total_debt_pence, completed_by,
+                                      completed_at, household_composition)
+    VALUES (${caseId}, ${clientId}, 1, 'current', 'placeholder-2026',
+            198_000, 176_000, 22_000, 400_000, ${adviserId}, now() - interval '2 days',
+            ${JSON.stringify({ adults: 1, children: 0 })}::jsonb)
+    RETURNING id`);
+
+  for (const line of [
+    { section: 'income', category: 'wages', amount: 198_000 },
+    { section: 'expenditure', category: 'rent-or-mortgage', amount: 82_000 },
+    { section: 'expenditure', category: 'food-and-housekeeping', amount: 34_000 },
+    { section: 'expenditure', category: 'gas-and-electricity', amount: 18_000 },
+    { section: 'expenditure', category: 'council-tax', amount: 14_500 },
+    { section: 'expenditure', category: 'travel', amount: 27_500 },
+  ]) {
+    await db.execute(sql`
+      INSERT INTO financial_statement_lines (statement_id, section, category, amount_pence,
+                                             entered_amount_pence, entered_frequency, source)
+      VALUES (${statement.rows[0]!.id}, ${line.section}, ${line.category},
+              ${line.amount}, ${line.amount}, 'monthly', 'declared')`);
+  }
+}
 
 const SCENARIOS: Scenario[] = [
   {

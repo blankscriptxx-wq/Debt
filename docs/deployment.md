@@ -42,7 +42,7 @@ Three roles with different privileges, none able to bypass row-level security:
 
 ```
 solvenda_owner      migrations only
-solvenda_app        all four applications
+solvenda_app        the application, for every surface but Control
 solvenda_platform   Solvenda Control, under a live access grant
 ```
 

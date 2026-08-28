@@ -11,16 +11,16 @@ apps/
               /control   Solvenda Control, platform operators
               /v1        the public API
 packages/
-  db            schema, 19 immutable migrations, RLS policies, the only DB access
+  db            schema, 22 immutable migrations, RLS policies, the only DB access
   auth          sessions, MFA, the permission catalogue, authorize()
   audit         hash-chained append-only ledger, diffing, verification
-  core          money, rules engine, case types, SFS, advice, Case Intelligence
+  core          money, rules engine, case types, SFS, advice, case file, Case Intelligence
   ai            provider abstraction, capability registry, context assembly, proposals
   workflow      trigger → conditions → actions → approvals → follow-up, and its queue
   comms         channel-agnostic communications model and the case timeline
   integrations  adapter contracts, per-tenant registry, API keys, webhooks, simulators
   migration     source profiles, field mapping, dry run, reconciliation
-  ui            design tokens and primitives shared by all four apps
+  ui            design tokens and primitives shared by every surface
   testing       tenant fixtures and the assertions the security suites are built from
 ```
 
@@ -108,6 +108,37 @@ The audit write is inside the same transaction as the change it records. A
 change that commits without its audit row is not a scenario the code has to
 handle, because it cannot occur.
 
+## The case file
+
+The adviser's working surface is eleven routed segments under
+`/app/cases/[id]`, sharing a tab bar and a case header: client details, living
+arrangements, employment, assets, debts, income and expenditure, advice,
+verification, appointments, checklist and messenger.
+
+Each tab is a server component with server actions over one module in
+`packages/core/src/case-file/`. The pages resolve the session, read what they
+need and hand the input to a domain function; nothing is computed in a page.
+That is what lets the rules be tested without a browser, and what stops two
+tabs disagreeing about the same figure.
+
+Three rules the modules enforce that the schema alone cannot:
+
+- **Household members band on age.** The SFS trigger figures depend on how many
+  children there are and how old they are, so a member with neither a date of
+  birth nor an age is refused rather than assumed. An assumed age silently
+  changes what the client is assessed as being able to afford.
+- **Equity is derived on read.** An asset stores its value, the debt secured on
+  it and the client's share. The equity DRO eligibility turns on is computed
+  from those three, so it cannot drift away from its own inputs.
+- **A statement is replaced, never edited.** Saving retires the current version,
+  inserts the new one and links the two, inside one transaction — the database
+  permits exactly one current statement per case, and "what was the basis of
+  that advice" has to keep having an answer.
+
+The advice tab is read-only by design. Recording a decision requires a
+rationale, the options considered and why the rejected ones were rejected;
+that belongs in its own flow, not in a tab of form fields.
+
 ## What runs asynchronously
 
 The workflow engine and the job queue are Postgres-backed
@@ -122,7 +153,7 @@ resumable, idempotent per step, and the run history is itself auditable.
 - No message broker. The queue is a table. At the volumes this market runs at,
   the operational cost of a broker exceeds its benefit, and the table is
   transactional with the work it schedules.
-- No microservices. Four apps over one database and one set of packages. The
+- No microservices. One app over one database and one set of packages. The
   isolation that matters here is between tenants, not between services.
 - No ORM-level tenancy. Drizzle is used for typing and query building; it is not
   trusted to add a tenant filter, because that is exactly the guarantee the
