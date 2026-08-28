@@ -184,6 +184,18 @@ async function main() {
         { providerKey, secrets });
     }
 
+    // A client with no case, existing so that integration tests have somewhere
+    // safe to write. Without it the API suite created cases against whichever
+    // client happened to be first in the list, which changed what the console
+    // and the client portal showed and broke two other suites.
+    await db.execute(sql`
+      INSERT INTO clients (reference, first_name, last_name, date_of_birth, email,
+                           jurisdiction, household_adults, household_children,
+                           employment_status)
+      VALUES ('CL-9000', 'Sandbox', 'Fixture', '1980-01-01',
+              'sandbox.fixture@example.test', 'england-wales', 1, 0, 'employed')
+      ON CONFLICT (tenant_id, reference) DO NOTHING`);
+
     const alreadySeeded = await db.execute<{ n: string }>(sql`
       SELECT count(*)::text AS n FROM cases`);
     if (Number(alreadySeeded.rows[0]!.n) > 0) {

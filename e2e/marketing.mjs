@@ -21,7 +21,14 @@ function check(name, condition, detail = '') {
 const browser = await chromium.launch({
   executablePath: process.env.CHROME_PATH ?? '/opt/pw-browsers/chromium-1194/chrome-linux/chrome',
 });
-const page = await browser.newPage({ viewport: { width: 1440, height: 960 } });
+// A distinct forwarded address per run. The contact form throttles per source,
+// so a fixed address would make this suite pass once an hour; a real deployment
+// sets this header at the proxy and must not trust a client-supplied one.
+const CLIENT_IP = `198.51.100.${1 + (Date.now() % 200)}`;
+const page = await browser.newPage({
+  viewport: { width: 1440, height: 960 },
+  extraHTTPHeaders: { 'x-forwarded-for': CLIENT_IP },
+});
 
 const errors = [];
 const missing = [];
@@ -111,6 +118,27 @@ try {
   const confirmation = await page.locator('body').innerText();
   check('a valid enquiry is accepted', confirmation.includes('Received'));
   await page.screenshot({ path: `${OUT}/23-www-contact-sent.png`, fullPage: true });
+
+  // The throttle. Deliberately driven with submissions that fail validation, so
+  // this asserts the limit without depositing five more rows.
+  const flooder = await browser.newPage({
+    viewport: { width: 1440, height: 960 },
+    extraHTTPHeaders: { 'x-forwarded-for': `203.0.113.${1 + (Date.now() % 200)}` },
+  });
+  let throttled = '';
+  for (let i = 0; i < 6; i += 1) {
+    await flooder.goto(`${BASE}/contact`, { waitUntil: 'domcontentloaded' });
+    await flooder.evaluate(() => document.querySelector('form.mk-form').noValidate = true);
+    await flooder.fill('#name', 'Flood Test');
+    await flooder.fill('#email', 'still-not-an-email');
+    await flooder.fill('#message', `flood ${i}`);
+    await flooder.click('button[type=submit]');
+    await flooder.waitForURL(/error=/, { timeout: 20000 });
+    throttled = await flooder.locator('.mk-form__error').innerText();
+  }
+  check('repeated submissions from one source are throttled',
+        /too many/i.test(throttled), throttled);
+  await flooder.close();
 
   // The write is only real if an operator can see it, so check the database and
   // then check Solvenda Control, which is the only thing that can read it back.

@@ -53,6 +53,28 @@ export default async function ProgressPage() {
             </div>
           )}
 
+          {view.otherOpenCases.length > 0 && (
+            <div className="cp-card">
+              <h2 className="cp-card__title">
+                {view.otherOpenCases.length === 1
+                  ? 'You have another case open too'
+                  : 'You have other cases open too'}
+              </h2>
+              <p style={{ color: 'var(--ink-muted)', marginTop: 0 }}>
+                This page shows your most recent one in full. Send us a message if you want an
+                update on any of these.
+              </p>
+              <ul style={{ margin: 0, paddingLeft: '1.2rem' }}>
+                {view.otherOpenCases.map((other) => (
+                  <li key={other.caseId} style={{ marginBottom: 'var(--space-2)' }}>
+                    <strong>{other.caseTypeName}</strong> — {other.reference}, currently at{' '}
+                    {other.stageName.toLowerCase()}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+
           <h2 className="cp-card__title" style={{ marginBottom: 'var(--space-4)' }}>
             Your progress
           </h2>

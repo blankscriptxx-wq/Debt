@@ -77,9 +77,19 @@ check('refuses a scope the key does not hold',
       clients.body?.error?.code);
 
 // --- writing ---------------------------------------------------------------
+// Written against the seeded sandbox fixture, never against a client the other
+// suites assert on: this suite used to create a case for whichever client came
+// back first, which changed what the console and the client portal showed and
+// silently broke them when run in the wrong order.
+const SANDBOX_CLIENT_ID = process.env.SANDBOX_CLIENT_ID;
+if (!SANDBOX_CLIENT_ID) {
+  console.error('SANDBOX_CLIENT_ID not provided; run e2e/make-api-key.mjs first');
+  process.exit(1);
+}
+
 const created = await call('/cases', {
   method: 'POST',
-  body: JSON.stringify({ clientId: cases.body.data[0].client.id, caseTypeKey: 'breathing-space' }),
+  body: JSON.stringify({ clientId: SANDBOX_CLIENT_ID, caseTypeKey: 'breathing-space' }),
 });
 check('creates a case', created.status === 201 && typeof created.body.data.id === 'string',
       created.body?.data?.reference);
@@ -88,7 +98,7 @@ check('starts it at the case type\'s first stage',
 
 const badType = await call('/cases', {
   method: 'POST',
-  body: JSON.stringify({ clientId: cases.body.data[0].client.id, caseTypeKey: 'not-a-thing' }),
+  body: JSON.stringify({ clientId: SANDBOX_CLIENT_ID, caseTypeKey: 'not-a-thing' }),
 });
 check('rejects an unknown case type', badType.status === 422);
 

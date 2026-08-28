@@ -15,7 +15,8 @@
     "test:watch": "vitest",
     "db:up": "docker compose up -d postgres",
     "db:migrate": "tsx packages/db/src/migrate.ts",
-    "db:seed": "tsx packages/db/src/seed.ts"
+    "db:seed": "tsx packages/db/src/seed.ts",
+    "test:e2e": "tsx e2e/run-all.mjs"
   },
   "devDependencies": {
     "@types/node": "^22.10.2",

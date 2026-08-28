@@ -15,6 +15,16 @@ export interface ClientCaseView {
   totalDebtPence: number;
   monthlyPaymentPence: number | null;
   nextReviewDue: string | null;
+  /**
+   * The client's other open cases.
+   *
+   * A client having two at once is ordinary — a Breathing Space moratorium
+   * running alongside a DMP referral, say. This view shows one in detail, and
+   * naming the rest is the difference between choosing what to show first and
+   * hiding something from the person it belongs to.
+   */
+  otherOpenCases: { caseId: string; reference: string; caseTypeName: string;
+                    stageName: string }[];
 }
 
 const PLAIN_ENGLISH: Record<string, string> = {
@@ -100,7 +110,31 @@ export async function loadClientCase(
     totalDebtPence: Number(row.total_debt),
     monthlyPaymentPence: row.payment === null ? null : Number(row.payment),
     nextReviewDue: row.next_review_due,
+    otherOpenCases: await loadOtherOpenCases(db, clientId, row.id),
   };
+}
+
+async function loadOtherOpenCases(
+  db: Database,
+  clientId: string,
+  primaryCaseId: string,
+): Promise<ClientCaseView['otherOpenCases']> {
+  const res = await db.execute<{ id: string; reference: string;
+                                 case_type_key: string; stage: string }>(sql`
+    SELECT id, reference, case_type_key, stage
+      FROM cases
+     WHERE client_id = ${clientId} AND status = 'open' AND id <> ${primaryCaseId}
+     ORDER BY opened_at DESC`);
+
+  return res.rows.map((row) => {
+    const template = CASE_TYPE_TEMPLATES.find((t) => t.key === row.case_type_key);
+    return {
+      caseId: row.id,
+      reference: row.reference,
+      caseTypeName: template?.name ?? row.case_type_key,
+      stageName: template?.stages.find((s) => s.key === row.stage)?.name ?? row.stage,
+    };
+  });
 }
 
 export interface ClientMessage {

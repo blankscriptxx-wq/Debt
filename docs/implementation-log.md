@@ -259,10 +259,53 @@ clearance for Solvenda are outstanding — the brand is provisional.
 
 - **342 unit and integration tests**, 1 skipped (the tamper test, which skips
   loudly when superuser credentials are absent), against real Postgres.
-- **129 browser and API checks** across five suites driving real running
+- **130 browser and API checks** across five suites driving real running
   servers: console 28, client portal 16, Control 20, public API 20,
-  marketing 45.
+  marketing 46.
 - 19 immutable migrations, 67 tables, 47 permissions of which 10 are regulated.
 
 An earlier commit message in this branch said "333 tests" when the count was
 313. The figures above are the accurate ones.
+
+---
+
+## Post-completion: a defect the suites found in each other
+
+Running all five browser suites back to back turned two of them red. The cause
+was not a product regression in the usual sense but it exposed one.
+
+`e2e/public-api.mjs` created its test case against whichever client came back
+first from `/v1/cases`. That client was Joanne Whitfield — the client the portal
+signs in as and the case the console suite searches for. Every API run therefore
+attached an empty Breathing Space case to her, which became the most recently
+opened open case, which is the one the client portal displays. The portal then
+showed a case with no adviser, no solution explanation and no figures, and four
+of its assertions failed. The console's overdue-review assertion failed for the
+same reason.
+
+Two fixes, because there were two problems.
+
+**The product one.** `loadClientCase` selected the most recently opened open
+case and said nothing about the others. A client having two cases at once is
+ordinary — a Breathing Space moratorium alongside a DMP referral — and silently
+showing one of them to the person they belong to is not defensible. The portal
+now names the client's other open cases with their reference and stage. Choosing
+what to show first is a design decision; hiding the rest is a bug.
+
+**The test one.** The seed now creates a client with no case (`CL-9000`, Sandbox
+Fixture) whose only purpose is to give integration tests somewhere safe to
+write, and `make-api-key.mjs` hands its id to the API suite alongside the key.
+`e2e/run-all.mjs` wires that up and runs all five suites in one process, so the
+arrangement is a script rather than something to remember.
+
+A third thing surfaced while fixing this: the marketing suite could only pass
+once an hour, because the contact form throttles per source address and the
+suite always presented the same one. It now sends a distinct `x-forwarded-for`
+per run — and, since the throttle was clearly working, gained an explicit
+assertion that a sixth submission from one source is refused. That check is
+driven with submissions that fail validation, so it proves the limit without
+depositing five more rows.
+
+**Final counts.** 342 unit and integration tests, 1 skipped. 130 browser and API
+checks: console 28, client portal 16, Control 20, public API 20, marketing 46.
+Both suites run twice in succession with identical results.

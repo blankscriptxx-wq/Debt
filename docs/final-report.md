@@ -14,7 +14,7 @@ making the current generation of debt-advice CRMs feel outdated.
 
 What exists now is a working multi-tenant platform: four applications, eleven
 packages, 67 tables across 19 immutable migrations, 342 unit and integration
-tests against real Postgres, and 129 browser and API checks driving real running
+tests against real Postgres, and 130 browser and API checks driving real running
 servers. It is a deep, working vertical slice on enterprise foundations, not a
 demonstration with a database behind it — but it is not a product a regulated
 firm could be onboarded onto tomorrow, and section 12 says exactly why.

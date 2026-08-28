@@ -29,5 +29,15 @@ const created = await withTenant({ ...ctx, userId }, (db) =>
     scopes: ['case:read', 'case:write', 'report:read'],
   }));
 
-console.log(created.key);
+// The suite writes cases, so it needs a client it is safe to write to. The
+// seeded sandbox fixture exists for exactly this and has no case of its own.
+const sandboxClientId = await withTenant(ctx, async (db) => {
+  const r = await db.execute(sql`SELECT id FROM clients WHERE reference = 'CL-9000'`);
+  return r.rows[0]?.id ?? null;
+});
+if (!sandboxClientId) {
+  throw new Error('Sandbox fixture client CL-9000 is missing. Run the seed.');
+}
+
+console.log(`${created.key} ${sandboxClientId}`);
 await closeDatabase();
