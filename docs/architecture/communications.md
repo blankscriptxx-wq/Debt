@@ -121,6 +121,47 @@ Three panes: **what is waiting**, **what was said**, **who this is**.
 - **The service window is a state.** Outside it the composer says so before the
   adviser types, rather than reporting a failure after they have written a reply.
 
+## 6a. Letters and signatures
+
+Most of what a firm sends is not written from scratch — an appointment
+confirmation, a request for a payslip, a reminder that a review is due — so the
+composer offers the firm's letters alongside free text. On WhatsApp this is not
+a convenience: once the 24-hour window has closed, an approved template is the
+only thing the platform will carry, so the picker is the only way to reach
+somebody.
+
+**Every message a person sends carries that person's name, and the name is read
+from the users table by the authenticated user id.** There is no parameter for
+it (`packages/comms/src/signature.ts`). An adviser cannot sign as a colleague, a
+compromised session cannot sign as somebody senior, and a workflow or an AI
+capability is signed as the firm and marked *(automated message)* — it is never
+given a person's name, because a client acting on what they think an adviser
+told them, when no adviser said it, is the regulated-permission failure arriving
+by a different route. An account with no name recorded cannot send to a client
+at all; that is refused rather than defaulted.
+
+The signature takes two shapes, and WhatsApp forces the distinction:
+
+| | How it is signed |
+|---|---|
+| Free text | Appended. There is no approved form to match. |
+| A template | Filled into a `{{adviser}}` **variable**. An approved template's body is fixed by Meta, so appending would produce a message that no longer matches what was approved. |
+
+Which is why a template that does not declare `{{adviser}}` cannot be activated
+(`activateTemplate`) — it is not a message missing a line, it is a message that
+can never be attributed to anybody, and the moment to catch that is before a
+firm builds a process on it. `renderTemplate` applies the signature *last*, so a
+caller passing `adviser` among the variables does not get to choose who the
+message is from.
+
+The picker shows every template, including ones that cannot be sent, with the
+reason: an adviser needs to know the letter exists and is waiting on the
+provider. Seeded templates are utility and service only — appointments,
+document requests, acknowledgements, review reminders. **None gives advice**: a
+recommendation is a regulated decision with its own screen, its own permission
+and its own immutable record, and it does not belong in something sent at the
+press of a button. None asks anybody for money either (§11).
+
 ## 7. Client and case matching
 
 Three rules, and the third is the one that protects clients from each other.
@@ -227,7 +268,9 @@ survives being printed, being colour-blind and being glanced at from a metre.
 
 `comms.message.received`, `comms.conversation.linked` (security severity — it is
 where a mis-identification would be introduced), `comms.conversation.assigned`,
-`comms.attachment.filed`, `comms.attachment.quarantined`. These feed the existing
+`comms.attachment.filed`, `comms.attachment.quarantined`,
+`comms.template.activated`. A sent template records which template and version,
+who signed it and whether a person did (`signedBy`, `humanSigned`). These feed the existing
 workflow engine and webhook delivery.
 
 ## 15. Future channels

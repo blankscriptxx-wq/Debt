@@ -100,6 +100,9 @@ export const AUDIT_ACTIONS = {
   'comms.attachment.filed': { severity: 'notable' },
   'comms.attachment.rejected': { severity: 'notable' },
   'comms.attachment.quarantined': { severity: 'security' },
+  // Activating a template is deciding what a firm says to clients at the press
+  // of a button, so it is a change worth being able to find later.
+  'comms.template.activated': { severity: 'notable' },
 
   // documents
   'document.uploaded': { severity: 'notable' },

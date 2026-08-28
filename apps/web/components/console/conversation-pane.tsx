@@ -3,11 +3,13 @@ import { requireSession, query } from '@/lib/console/session';
 import {
   linkConversation, assignConversation, setConversationStatus, markRead,
   fileAttachment, rejectAttachment, suggestClassification, replyInConversation,
-  SimulatedChannel, ConversationError, AttachmentError,
+  sendTemplate, SimulatedChannel, ConversationError, AttachmentError, TemplateError,
+  type TemplateSummary,
 } from '@solvenda/comms';
 import { Badge, SimulatedNotice } from '@solvenda/ui';
 import type { ConversationDetail } from '@/lib/console/inbox';
 import { AttachmentCard } from './attachment-card';
+import { LetterPicker } from './letter-picker';
 
 /**
  * The conversation.
@@ -37,7 +39,7 @@ function tick(status: string): { mark: string; label: string } {
 }
 
 export async function ConversationPane({
-  conversation, clients, search, outstanding, caseId, result,
+  conversation, clients, search, outstanding, caseId, templates, signature, result,
 }: {
   conversation: ConversationDetail;
   clients: readonly { id: string; reference: string; name: string;
@@ -45,6 +47,9 @@ export async function ConversationPane({
   search: string;
   outstanding: readonly { key: string; label: string; state: string }[];
   caseId: string | null;
+  templates: readonly TemplateSummary[];
+  /** How anything sent from here will be signed. Null if the account has no name. */
+  signature: string | null;
   result: { ok: boolean; message: string } | null;
 }) {
   const conversationId = conversation.id;
@@ -117,6 +122,46 @@ export async function ConversationPane({
     }
     redirect(`/app/inbox?c=${conversationId}&saved=`
       + encodeURIComponent(internal ? 'Note added.' : 'Sent.'));
+  }
+
+  async function letter(form: FormData) {
+    'use server';
+    const session = await requireSession();
+    const clientId = conversation.clientId;
+    if (!clientId) {
+      return redirect(`/app/inbox?c=${conversationId}&error=`
+        + encodeURIComponent('Link this conversation to a client before sending a letter.'));
+    }
+
+    // Whatever the template declared, gathered from fields named for it. The
+    // signature is not among them — it is resolved from the signed-in account
+    // inside sendTemplate, and there is no parameter here that could override it.
+    const variables: Record<string, string> = {};
+    for (const [name, value] of form.entries()) {
+      if (name.startsWith('var.')) variables[name.slice(4)] = String(value).trim();
+    }
+
+    try {
+      await query(session, (db) => sendTemplate(
+        db, session.context, session.principal,
+        new SimulatedChannel(conversation.channel as 'whatsapp'), {
+          templateKey: String(form.get('templateKey') ?? ''),
+          clientId, caseId: conversation.caseId, conversationId,
+          channel: conversation.channel as 'whatsapp',
+          variables,
+          // Recomputed here rather than trusted from the page: the window can
+          // close between a page render and a click.
+          windowOpen: conversation.channel !== 'whatsapp'
+            || Boolean(conversation.windowOpenUntil),
+        }));
+    } catch (cause) {
+      console.error('sending a letter failed', cause);
+      return redirect(`/app/inbox?c=${conversationId}&error=`
+        + encodeURIComponent(cause instanceof TemplateError
+            ? cause.message : 'That letter could not be sent.'));
+    }
+    redirect(`/app/inbox?c=${conversationId}&saved=`
+      + encodeURIComponent('Letter sent, signed in your name.'));
   }
 
   async function file(form: FormData) {
@@ -284,6 +329,16 @@ export async function ConversationPane({
         })}
       </div>
 
+      {conversation.clientId && (
+        <LetterPicker
+          templates={templates}
+          signature={signature}
+          windowOpen={windowOpen}
+          clientName={conversation.clientName ?? conversation.counterpartyLabel}
+          onSend={letter}
+        />
+      )}
+
       <form action={reply} className="sv-composer">
         {/* The service window is a state, not an error to discover on send.
             Saying so before the adviser types is the difference between a
@@ -304,7 +359,12 @@ export async function ConversationPane({
             <input type="checkbox" name="internal" defaultChecked={!windowOpen} />
             Internal note — the client never sees this
           </label>
-          <button className="sv-btn sv-btn--primary sv-btn--md" type="submit">Send</button>
+          <div className="sv-composer__send">
+            {signature && (
+              <span className="sv-composer__signed">Signed {signature}</span>
+            )}
+            <button className="sv-btn sv-btn--primary sv-btn--md" type="submit">Send</button>
+          </div>
         </div>
       </form>
     </section>

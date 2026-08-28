@@ -3,6 +3,7 @@ import { recordAudit } from '@solvenda/audit';
 import { requirePermission, type Principal } from '@solvenda/auth';
 import { scrub } from '@solvenda/ai';
 import type { ChannelAdapter, OutboundMessage } from './channels.js';
+import { resolveSignature, applySignature } from './signature.js';
 
 export class CommunicationBlockedError extends Error {
   constructor(message: string, public readonly code: 'no-consent' | 'channel-declined' | 'no-address' | 'template-incomplete') {
@@ -22,6 +23,13 @@ export interface SendInput {
   /** Bypasses preference checks for a statutory communication. Recorded. */
   statutory?: boolean;
   statutoryBasis?: string;
+  /**
+   * Set when the body already carries its signature — a rendered template,
+   * where the signature is a variable rather than something appended. Never a
+   * way to send unsigned: a template that does not declare the signature
+   * variable cannot be activated in the first place.
+   */
+  signed?: boolean;
 }
 
 /**
@@ -89,9 +97,20 @@ export async function sendCommunication(
     );
   }
 
+  // Signed here rather than by whoever composed it, which is what makes the
+  // signature worth anything: the name comes from the users table by the
+  // authenticated id, so nobody can sign as somebody else, and no code path
+  // above this one can send a client an unattributable message.
+  //
+  // `signed` is the body already carrying the signature — a template renders it
+  // into a variable before it arrives, because an approved WhatsApp template
+  // cannot be appended to without ceasing to match what Meta approved.
+  const signature = await resolveSignature(db, principal);
+  const body = input.signed ? input.body : applySignature(input.body, signature);
+
   const message: OutboundMessage = {
     channel: input.channel, to,
-    subject: input.subject ?? null, body: input.body,
+    subject: input.subject ?? null, body,
   };
   const delivery = await adapter.send(message);
 
@@ -104,7 +123,7 @@ export async function sendCommunication(
     ) VALUES (
       ${input.caseId ?? null}, ${input.clientId}, ${input.channel}, 'outbound',
       ${input.counterpartyType ?? 'client'}, ${input.clientId}, ${to},
-      ${input.subject ?? null}, ${input.body}, ${scrub(input.body).text},
+      ${input.subject ?? null}, ${body}, ${scrub(body).text},
       ${input.templateKey ?? null},
       ${delivery.status === 'failed' ? 'failed' : delivery.status},
       ${delivery.failureReason ?? null},

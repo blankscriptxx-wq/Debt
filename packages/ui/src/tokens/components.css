@@ -665,6 +665,54 @@
   background: var(--attention-subtle); color: var(--attention);
   font-size: var(--text-sm);
 }
+.sv-composer__send { display: flex; align-items: center; gap: var(--space-3); }
+/* Stated rather than offered. The name comes from the signed-in account, so
+   there is nothing to change here - and that is exactly what makes it worth
+   showing a client. */
+.sv-composer__signed { font-size: var(--text-2xs); color: var(--ink-subtle); }
+
+/* --- the firm's letters --------------------------------------------------- */
+.sv-letters {
+  border: 1px solid var(--border); border-radius: var(--radius-lg);
+  background: var(--surface); padding: var(--space-3) var(--space-4);
+}
+.sv-letters__summary {
+  cursor: pointer; font-weight: 600; font-size: var(--text-sm);
+  display: flex; align-items: baseline; gap: var(--space-2);
+}
+.sv-letters__count { font-weight: 400; font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-letters__note {
+  margin: var(--space-2) 0 var(--space-3); font-size: var(--text-xs);
+  color: var(--ink-muted);
+}
+.sv-letter {
+  border-top: 1px solid var(--border); padding: var(--space-2) 0;
+}
+.sv-letter__summary {
+  cursor: pointer; display: flex; align-items: center; gap: var(--space-2);
+  font-size: var(--text-sm); flex-wrap: wrap;
+}
+.sv-letter__name { font-weight: 500; }
+.sv-letter__category {
+  font-size: var(--text-2xs); color: var(--ink-subtle); text-transform: uppercase;
+  letter-spacing: 0.04em;
+}
+/* The letter as the client will read it, placeholders and all, so an adviser
+   knows what they are about to send before they fill anything in. */
+.sv-letter__body {
+  margin: var(--space-2) 0; padding: var(--space-3);
+  border-left: 2px solid var(--border); background: var(--surface-sunken);
+  border-radius: var(--radius-sm); font-size: var(--text-sm);
+  color: var(--ink-muted); white-space: pre-wrap;
+}
+.sv-letter__form { display: flex; flex-direction: column; gap: var(--space-2); }
+.sv-letter__field { display: flex; flex-direction: column; gap: 2px; }
+.sv-letter__label { font-size: var(--text-2xs); color: var(--ink-subtle); }
+.sv-letter__signed { margin: 0; font-size: var(--text-xs); color: var(--ink-muted); }
+.sv-letter--blocked .sv-letter__name { color: var(--ink-muted); }
+.sv-letter__blocked {
+  margin: 0; font-size: var(--text-xs); color: var(--attention);
+}
 
 /* --- an attachment -------------------------------------------------------- */
 .sv-attach {

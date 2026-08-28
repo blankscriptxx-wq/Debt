@@ -257,6 +257,77 @@ try {
   check('and is unmistakably not something the client saw',
         (await note.innerText()).toLowerCase().includes('internal note'));
 
+  // --- every message says who it is from ------------------------------------
+  // The claim under test is that the name is not something the adviser types.
+  // It is read from the account they signed in with, so a message signed
+  // "Marcus" by somebody logged in as Ruth still reaches the client as Ruth's.
+  const signedAs = (await page.locator('.sv-composer__signed').innerText())
+    .replace(/^Signed\s+/, '').trim();
+  check('the composer says how the message will be signed before anything is typed',
+        signedAs.length > 3, signedAs);
+
+  const replyText = `Thanks, that is on your file now (${stamp}). Best, Marcus Adeyemi`;
+  await page.fill('textarea[name=body]', replyText);
+  await page.uncheck('input[name=internal]');
+  await page.locator('.sv-composer button[type=submit]').click();
+  const reply = page.locator('.sv-msg--out', { hasText: stamp }).last();
+  await reply.waitFor({ timeout: 20000 });
+
+  const replyBody = await reply.innerText();
+  check('a reply is signed with the account the adviser is logged into',
+        replyBody.includes(signedAs), signedAs);
+  check('and what the adviser typed is left alone',
+        replyBody.includes('Marcus Adeyemi'),
+        'we attribute the message, we do not edit it');
+
+  // --- sending a letter ------------------------------------------------------
+  await open('Elaine');
+  const letters = page.locator('.sv-letters');
+  check('the firm’s letters are offered in the composer', await letters.count() === 1);
+
+  if (!(await letters.evaluate((el) => el.open))) {
+    await page.locator('.sv-letters__summary').click();
+  }
+
+  const letter = page.locator('.sv-letter', { hasText: 'Document request' }).first();
+  await letter.locator('.sv-letter__summary').click();
+
+  check('a letter shows what the client will read before it is filled in',
+        (await letter.locator('.sv-letter__body').innerText()).includes('{{'),
+        'placeholders visible, so nothing is sent blind');
+  check('the letter states whose name goes on it, with nothing to change',
+        (await letter.locator('.sv-letter__signed').innerText()).includes(signedAs));
+
+  await letter.locator('input[name="var.firstName"]').fill('Elaine');
+  await letter.locator('input[name="var.document"]')
+    .fill(`a recent bank statement (${stamp})`);
+  await letter.locator('button[type=submit]').click();
+
+  const sentLetter = page.locator('.sv-msg--out', { hasText: `bank statement (${stamp})` })
+    .last();
+  await sentLetter.waitFor({ timeout: 20000 });
+
+  const letterBody = await sentLetter.locator('.sv-msg__body').innerText();
+  check('the letter reaches the thread with its variables filled in',
+        letterBody.includes('Elaine') && !letterBody.includes('{{'),
+        letterBody.slice(0, 70));
+  check('and carries the sender’s name in the template’s own variable',
+        letterBody.includes(signedAs), signedAs);
+  // An approved template's body is fixed by the provider, so appending a
+  // second signature would produce a message that no longer matches what was
+  // approved. Once, in the place the template declared.
+  check('signed once, not appended to',
+        letterBody.split(signedAs).length === 2 && !letterBody.includes('— '),
+        'the signature is a variable, not a postscript');
+
+  // --- and not to somebody nobody has identified ----------------------------
+  await open('900788');
+  check('no letter can be sent to a conversation nobody has identified',
+        await page.locator('.sv-letters').count() === 0,
+        'identify first, then send');
+
+  await open('Elaine');
+
   // --- leave the fixture as it was found ------------------------------------
   // Filing evidence is permanent and monotonic, so without this the second run
   // works a case with nothing outstanding and cannot demonstrate anything. Done

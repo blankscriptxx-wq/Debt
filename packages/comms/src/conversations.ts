@@ -388,14 +388,27 @@ export async function replyInConversation(
     body,
   });
 
-  // `sendCommunication` does not know about threads, so the reply is stitched
-  // into this one here rather than duplicating what it does.
-  await db.execute(sql`
-    UPDATE communications SET conversation_id = ${input.conversationId}
-     WHERE id = ${sent.communicationId}`);
-  await touch(db, input.conversationId, body, true);
+  await attachToConversation(db, input.conversationId, sent.communicationId, body);
 
   return { communicationId: sent.communicationId, delivered: sent.delivered };
+}
+
+/**
+ * Puts an already-sent message into a thread.
+ *
+ * `sendCommunication` knows about clients and cases and deliberately not about
+ * conversations, so that a message sent from a case file, a workflow or the API
+ * is recorded identically to one sent from the inbox. Anything sent *from* a
+ * thread stitches itself in here — and it must, because an adviser who sends a
+ * letter and cannot see it in the conversation has no way to know it went.
+ */
+export async function attachToConversation(
+  db: Database, conversationId: string, communicationId: string, preview: string,
+): Promise<void> {
+  await db.execute(sql`
+    UPDATE communications SET conversation_id = ${conversationId}
+     WHERE id = ${communicationId}`);
+  await touch(db, conversationId, preview, true);
 }
 
 /**

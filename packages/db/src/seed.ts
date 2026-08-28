@@ -285,12 +285,13 @@ async function main() {
     const alreadySeeded = await db.execute<{ n: string }>(sql`
       SELECT count(*)::text AS n FROM cases
        WHERE reference <> ${CASEWORK_FIXTURE_CASE}`);
-    if (Number(alreadySeeded.rows[0]!.n) > 0) {
-      console.log('  cases already present, leaving them alone');
-      return;
-    }
+    // A flag rather than a return. Everything after the cases has its own guard
+    // and its own reason to run, and hanging it all off this one is how a
+    // section added later silently never runs on a database seeded once already.
+    const seedCases = Number(alreadySeeded.rows[0]!.n) === 0;
+    if (!seedCases) console.log('  cases already present, leaving them alone');
 
-    for (const [index, scenario] of SCENARIOS.entries()) {
+    for (const [index, scenario] of seedCases ? SCENARIOS.entries() : []) {
       const client = await db.execute<{ id: string }>(sql`
         INSERT INTO clients (reference, first_name, last_name, date_of_birth, email,
                              phone_mobile, address_line1, address_city, address_postcode,
@@ -432,9 +433,11 @@ async function main() {
       }
     }
 
-    await seedConversations(db, adviserId);
+    if (seedCases) console.log(`  seeded ${SCENARIOS.length} cases`);
 
-    console.log(`  seeded ${SCENARIOS.length} cases`);
+    // After the cases, because the conversations attach to one of them.
+    await seedConversations(db, adviserId);
+    await seedTemplates(db, adviserId);
   });
 
   console.log(`\nSign in at /login`);
@@ -917,4 +920,96 @@ async function seedConversations(db: Database, adviserId: string): Promise<void>
     VALUES (${unknown.rows[0]!.id}, 'whatsapp', 'inbound', 'third-party', '07700 900788',
             'Hi, I was given this number by the council. Can someone help me with my debts?',
             'received', 'client', true, now() - interval '35 minutes')`);
+}
+
+/**
+ * The letters a firm sends over WhatsApp.
+ *
+ * Every one is an arrangement, a request or an acknowledgement. **None of them
+ * gives advice** — a recommendation is a regulated decision with its own screen,
+ * its own permission and its own immutable record, and it does not belong in
+ * something sent at the press of a button. None of them asks anybody for money
+ * either, because collection is prohibited on this channel whatever licences a
+ * firm holds.
+ *
+ * Each ends in {{adviser}}, which is not a variable anybody fills in: the
+ * platform resolves it from the signed-in user. That is what an approved
+ * template forces — its body is fixed by Meta, so a signature cannot be
+ * appended at send time and has to be part of what was approved.
+ *
+ * One is left pending approval on purpose. A firm should see what an
+ * unapproved template looks like in the picker before it is the thing standing
+ * between them and a client waiting for an answer.
+ */
+async function seedTemplates(db: Database, adviserId: string): Promise<void> {
+  const existing = await db.execute<{ n: string }>(sql`
+    SELECT count(*)::text AS n FROM communication_templates WHERE channel = 'whatsapp'`);
+  if (Number(existing.rows[0]!.n) > 0) return;
+
+  const templates = [
+    {
+      key: 'appointment-confirmed',
+      name: 'Appointment confirmed',
+      category: 'utility',
+      variables: ['firstName', 'when', 'adviser'],
+      body: 'Hello {{firstName}}, your appointment is booked for {{when}}. '
+        + 'If you cannot make it, reply to this message and we will find another time.'
+        + '\n\n{{adviser}}',
+      status: 'approved',
+    },
+    {
+      key: 'document-request',
+      name: 'Document request',
+      category: 'utility',
+      variables: ['firstName', 'document', 'adviser'],
+      body: 'Hello {{firstName}}, to carry on with your case we still need {{document}}. '
+        + 'You can send a photo or a file straight back on this chat.'
+        + '\n\n{{adviser}}',
+      status: 'approved',
+    },
+    {
+      key: 'document-received',
+      name: 'Document received',
+      category: 'service',
+      variables: ['firstName', 'document', 'adviser'],
+      body: 'Thanks {{firstName}} — we have received {{document}} and added it to your file. '
+        + 'There is nothing else you need to do about it.'
+        + '\n\n{{adviser}}',
+      status: 'approved',
+    },
+    {
+      key: 'review-due',
+      name: 'Review due',
+      category: 'utility',
+      variables: ['firstName', 'when', 'adviser'],
+      body: 'Hello {{firstName}}, your case is due for a review {{when}}. We go through your '
+        + 'income and spending to check everything still fits. Reply here and we will '
+        + 'arrange a time that suits you.'
+        + '\n\n{{adviser}}',
+      status: 'approved',
+    },
+    {
+      key: 'case-closed',
+      name: 'Case closed',
+      category: 'service',
+      variables: ['firstName', 'caseReference', 'adviser'],
+      body: 'Hello {{firstName}}, your case {{caseReference}} is now closed and we have '
+        + 'written to you with the details. If anything changes you can contact us again.'
+        + '\n\n{{adviser}}',
+      // Submitted and waiting. The picker shows it as unavailable outside the
+      // 24-hour window, which is the honest state rather than a send that fails.
+      status: 'pending',
+    },
+  ];
+
+  for (const template of templates) {
+    await db.execute(sql`
+      INSERT INTO communication_templates
+        (key, name, channel, body, required_variables, status, approved_by, approved_at,
+         provider_key, provider_template_id, provider_status, provider_category, language_code)
+      VALUES (${template.key}, ${template.name}, 'whatsapp', ${template.body},
+              string_to_array(${template.variables.join(',')}, ','), 'active', ${adviserId}, now(),
+              'sandbox-whatsapp', ${`sandbox_${template.key.replace(/-/g, '_')}`},
+              ${template.status}, ${template.category}, 'en_GB')`);
+  }
 }

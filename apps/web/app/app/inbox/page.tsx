@@ -9,6 +9,7 @@ import { ContextPane } from '@/components/console/context-pane';
 import { EmptyState } from '@solvenda/ui';
 import { caseContext } from '@/lib/console/case-context';
 import { outstandingEvidence } from '@solvenda/core';
+import { listTemplates, resolveSignature, type TemplateSummary } from '@solvenda/comms';
 
 export const dynamic = 'force-dynamic';
 
@@ -52,6 +53,23 @@ export default async function InboxPage({
     ? await query(session, (db) => searchClients(db, q ?? ''))
     : [];
 
+  // The firm's letters, each already knowing whether this channel will carry it
+  // right now — because a picker that offers something WhatsApp will refuse is
+  // how an adviser comes to believe a client was told something they were not.
+  const windowOpen = !conversation ? false
+    : conversation.channel !== 'whatsapp' || Boolean(conversation.windowOpenUntil);
+  const templates: TemplateSummary[] = conversation?.clientId
+    ? await query(session, (db) => listTemplates(db, conversation.channel, windowOpen))
+    : [];
+
+  // Stated in the composer before anything is typed. The name comes from the
+  // signed-in account and cannot be chosen, which is the whole point of showing
+  // it; an account with no name recorded cannot send to a client at all, and
+  // saying so here beats a failure after somebody has written the message.
+  const signature = await query(session, (db) => resolveSignature(db, session.principal))
+    .then((s) => s.text)
+    .catch(() => null);
+
   // The case behind the conversation, so the context pane can say what is
   // outstanding — which is also what makes an attachment suggestion specific.
   const context = conversation?.caseId ? await caseContext(conversation.caseId) : null;
@@ -82,6 +100,8 @@ export default async function InboxPage({
               key: e.key, label: e.label, state: e.state,
             }))}
             caseId={conversation.caseId}
+            templates={templates}
+            signature={signature}
             result={saved ? { ok: true, message: decodeURIComponent(saved) }
                   : error ? { ok: false, message: error } : null}
           />
