@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sql, withTenant, withPlatform } from '@solvenda/db';
-import { login } from '@solvenda/auth';
+import {
+  DEMO_FIRM_SLUG, DEMO_STAFF_ACCOUNTS, demoLogin, demoLoginEnabled, login,
+} from '@solvenda/auth';
+import { DemoSignIn } from '@solvenda/ui';
 import { SESSION_COOKIE, TENANT_COOKIE, currentSession } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -54,6 +57,45 @@ async function signIn(formData: FormData) {
   });
 
   redirect(outcome.session.mfaRequired ? '/login/verify' : '/');
+}
+
+/**
+ * One-click sign-in for development.
+ *
+ * Shares everything after identification with the real path above: the same
+ * session, the same cookies, the same expiry. `demoLogin` refuses unless the
+ * demo switch is on, so this action cannot become a way in by accident.
+ */
+async function signInAsDemo(formData: FormData) {
+  'use server';
+
+  const email = String(formData.get('email') ?? '');
+  if (!DEMO_STAFF_ACCOUNTS.some((a) => a.email === email)) redirect('/login?error=credentials');
+
+  const tenantId = await withPlatform(
+    { operatorId: process.env['SOLVENDA_SIGNIN_OPERATOR_ID'] ?? ZERO_UUID,
+      reason: 'resolve firm slug for demo sign-in' },
+    async (db) => {
+      const res = await db.execute<{ id: string }>(sql`
+        SELECT id FROM tenants WHERE slug = ${DEMO_FIRM_SLUG}`);
+      return res.rows[0]?.id ?? null;
+    },
+  ).catch(() => null);
+  if (!tenantId) redirect('/login?error=credentials');
+
+  const ctx = { tenantId, actorType: 'system' as const, actorLabel: 'demo-sign-in' };
+  const outcome = await withTenant(ctx, (db) => demoLogin(db, ctx, { email }));
+  if (!outcome.ok) redirect('/login?error=credentials');
+
+  const jar = await cookies();
+  const secure = process.env['NODE_ENV'] === 'production';
+  const options = {
+    httpOnly: true, secure, sameSite: 'lax' as const, path: '/',
+    expires: outcome.session.expiresAt,
+  };
+  jar.set(SESSION_COOKIE, outcome.session.token, options);
+  jar.set(TENANT_COOKIE, tenantId, options);
+  redirect('/');
 }
 
 const ZERO_UUID = '00000000-0000-0000-0000-000000000000';
@@ -110,6 +152,10 @@ export default async function LoginPage({
             Sign in
           </button>
         </form>
+
+        {demoLoginEnabled() && (
+          <DemoSignIn accounts={DEMO_STAFF_ACCOUNTS} action={signInAsDemo} />
+        )}
       </div>
     </div>
   );

@@ -63,6 +63,41 @@ the site still builds and every page still renders — the pricing figures are a
 build-time import, not a query — but a submitted enquiry returns "We could not
 record that", which is at least honest about having failed.
 
+## The development sign-in buttons
+
+Every portal can offer one-click sign-in to a seeded account: six staff roles on
+the console, two clients on the portal, the operator on Control. No password, no
+second factor.
+
+It is off unless **both** of these are set:
+
+| Variable | Effect |
+|---|---|
+| `SOLVENDA_DEMO_LOGIN=1` | Turns the buttons on |
+| `SOLVENDA_DEMO_LOGIN_ALLOW_PRODUCTION=1` | Additionally required when `NODE_ENV=production` |
+
+Two switches rather than one, deliberately. `next start` and every Vercel
+deployment run as production, so enabling this on a deployed instance is a
+decision someone has to make twice. **Setting both on a public Control
+deployment makes platform administration available to anyone who has the URL** —
+there is nothing else in the way.
+
+What it does not do is bypass the session mechanism. A demo sign-in mints a real
+session through the same code path as a password sign-in: it expires on both
+clocks, it can be revoked, and it is audited, with the audit row saying plainly
+that no credentials were checked.
+
+Accounts come from the seed, so a database seeded with `pnpm db:seed` is a
+prerequisite. The seed itself now refuses to run unless `PGDATABASE` looks like
+a development or test database, or `SEED_ALLOW_NON_DEV=1` is set.
+
+## Operator sign-in
+
+Solvenda Control requires a second factor. An operator account with no enrolled
+secret cannot sign in at all — it is refused rather than waved through, which is
+the opposite of how it behaved until recently. The seed enrols a fixed TOTP
+secret for the development operator and prints the current code.
+
 ## What is not wired up for a deployed environment
 
 **The workflow queue has no runner.** `packages/workflow` implements durable

@@ -16,10 +16,28 @@ const FIRM_SLUG = process.env['SEED_FIRM_SLUG'] ?? 'northgate';
 const ADMIN_EMAIL = process.env['SEED_ADMIN_EMAIL'] ?? 'adviser@northgate.test';
 const ADMIN_PASSWORD = process.env['SEED_ADMIN_PASSWORD'] ?? 'a perfectly reasonable passphrase';
 
+/**
+ * The seed writes a known password and a known TOTP secret. Running it against
+ * a deployed database would hand anyone who has read this repository a working
+ * operator account, so it refuses unless the database name looks like a
+ * development or test one.
+ */
+function assertDevelopmentDatabase(): void {
+  const name = process.env['PGDATABASE'] ?? '';
+  const looksLocal = /(_dev|_test|_local|development)$/.test(name);
+  if (looksLocal || process.env['SEED_ALLOW_NON_DEV'] === '1') return;
+  throw new Error(
+    `Refusing to seed "${name || '(unset)'}": the name does not look like a development `
+    + 'database, and the seed writes credentials that are published in this repository. '
+    + 'Set SEED_ALLOW_NON_DEV=1 if you genuinely mean to.',
+  );
+}
+
 async function main() {
+  assertDevelopmentDatabase();
   await migrate({ silent: true });
 
-  const { PERMISSIONS, ROLE_TEMPLATES, hashPassword, copyRoleTemplates } =
+  const { PERMISSIONS, ROLE_TEMPLATES, hashPassword, copyRoleTemplates, totpCodeAt } =
     await import('../../auth/src/index.js');
   const { CASE_TYPE_TEMPLATES } = await import('../../core/src/index.js');
   const { CAPABILITIES } = await import('../../ai/src/index.js');
@@ -29,6 +47,12 @@ async function main() {
 
   const operatorPasswordHash = await hashPassword(ADMIN_PASSWORD);
   const OPERATOR_EMAIL = 'operator@solvenda.test';
+  // Operators cannot sign in without a second factor, so the seed enrols one
+  // and prints it. A fixed secret in development is fine and reproducible; it
+  // is the absence of a secret that was dangerous, because the check used to
+  // be skipped entirely when there was nothing to check.
+  const OPERATOR_TOTP_SECRET = process.env['SEED_OPERATOR_TOTP_SECRET']
+    ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
 
   // Re-running the seed must be safe. Reuse the operator if one already exists,
   // rather than minting a new id and colliding on the unique email.
@@ -44,12 +68,14 @@ async function main() {
   // --- platform reference data ---------------------------------------------
   await withPlatform({ operatorId, reason: 'seed platform catalogues' }, async (db) => {
     await db.execute(sql`
-      INSERT INTO platform_operators (id, email, full_name, password_hash, operator_role)
+      INSERT INTO platform_operators (id, email, full_name, password_hash,
+                                      operator_role, mfa_secret)
       VALUES (${operatorId}, ${OPERATOR_EMAIL}, 'Platform Operator',
-              ${operatorPasswordHash}, 'admin')
+              ${operatorPasswordHash}, 'admin', ${OPERATOR_TOTP_SECRET})
       ON CONFLICT (email) DO UPDATE
         SET password_hash = EXCLUDED.password_hash,
-            full_name = EXCLUDED.full_name`);
+            full_name = EXCLUDED.full_name,
+            mfa_secret = EXCLUDED.mfa_secret`);
 
     for (const p of PERMISSIONS) {
       await db.execute(sql`
@@ -143,6 +169,27 @@ async function main() {
       }
     }
 
+    // One user per role, so the demo sign-in buttons show what the console
+    // actually looks like to each of them. Ruth above keeps every role because
+    // the seeded cases are assigned to her; these are single-role accounts and
+    // the difference between them is the point.
+    for (const person of DEMO_STAFF) {
+      const created = await db.execute<{ id: string }>(sql`
+        INSERT INTO users (email, full_name, user_type, status, password_hash,
+                           job_title, competencies)
+        VALUES (${person.email}, ${person.name}, 'staff', 'active', ${passwordHash},
+                ${person.jobTitle},
+                string_to_array(${person.competencies.join(',')}, ','))
+        ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+        RETURNING id`);
+      const userId = created.rows[0]!.id;
+      if (roleIds[person.role]) {
+        await db.execute(sql`
+          INSERT INTO user_roles (user_id, role_id) VALUES (${userId}, ${roleIds[person.role]})
+          ON CONFLICT DO NOTHING`);
+      }
+    }
+
     for (const c of CASE_TYPE_TEMPLATES) {
       await db.execute(sql`
         INSERT INTO case_type_definitions (key, name, description, category, jurisdictions,
@@ -195,6 +242,30 @@ async function main() {
       VALUES ('CL-9000', 'Sandbox', 'Fixture', '1980-01-01',
               'sandbox.fixture@example.test', 'england-wales', 1, 0, 'employed')
       ON CONFLICT (tenant_id, reference) DO NOTHING`);
+
+    // Portal accounts are backfilled outside the case-seeding guard above, so
+    // re-running the seed against a database that already has cases still
+    // creates any account the demo sign-in expects.
+    for (const email of PORTAL_CLIENT_EMAILS) {
+      const client = await db.execute<{ id: string; first_name: string; last_name: string }>(sql`
+        SELECT id, first_name, last_name FROM clients WHERE email = ${email}`);
+      const row = client.rows[0];
+      if (!row) continue;
+      const portalUser = await db.execute<{ id: string }>(sql`
+        INSERT INTO users (email, full_name, user_type, status, password_hash)
+        VALUES (${email}, ${`${row.first_name} ${row.last_name}`},
+                'client', 'active', ${passwordHash})
+        ON CONFLICT (tenant_id, email) DO UPDATE SET password_hash = EXCLUDED.password_hash
+        RETURNING id`);
+      await db.execute(sql`
+        UPDATE clients SET portal_user_id = ${portalUser.rows[0]!.id} WHERE id = ${row.id}`);
+      if (roleIds['client']) {
+        await db.execute(sql`
+          INSERT INTO user_roles (user_id, role_id)
+          VALUES (${portalUser.rows[0]!.id}, ${roleIds['client']})
+          ON CONFLICT DO NOTHING`);
+      }
+    }
 
     const alreadySeeded = await db.execute<{ n: string }>(sql`
       SELECT count(*)::text AS n FROM cases`);
@@ -299,9 +370,11 @@ async function main() {
                   ${adviserId}, ${task.dueAt}, 'user')`);
       }
 
-      // A portal account for the first client, so the consumer experience can
-      // be exercised end to end.
-      if (index === 0) {
+      // Portal accounts for the clients the demo sign-in offers. Two rather
+      // than one, because the interesting difference is between a live plan
+      // with an overdue review and a Scottish case with a recorded
+      // vulnerability and a deficit budget.
+      if (PORTAL_CLIENT_EMAILS.includes(scenario.email)) {
         const portalUser = await db.execute<{ id: string }>(sql`
           INSERT INTO users (email, full_name, user_type, status, password_hash)
           VALUES (${scenario.email}, ${`${scenario.firstName} ${scenario.lastName}`},
@@ -331,6 +404,7 @@ async function main() {
                   ${message.direction === 'outbound'}, ${message.at})`);
       }
     }
+
     console.log(`  seeded ${SCENARIOS.length} cases`);
   });
 
@@ -345,6 +419,9 @@ async function main() {
   console.log(`\nSolvenda Control:`);
   console.log(`  email:    ${OPERATOR_EMAIL}`);
   console.log(`  password: ${ADMIN_PASSWORD}`);
+  console.log(`  TOTP secret: ${OPERATOR_TOTP_SECRET}`);
+  console.log(`  code now:    ${totpCodeAt(OPERATOR_TOTP_SECRET, Date.now())}`
+              + ' (changes every 30 seconds)');
   console.log(`\nSet SOLVENDA_SIGNIN_OPERATOR_ID=${operatorId} for the sign-in lookup.`);
 }
 
@@ -383,6 +460,31 @@ interface Scenario {
 const DAY = 86_400_000;
 const daysAgo = (n: number) => new Date(Date.now() - n * DAY).toISOString();
 const daysAhead = (n: number) => new Date(Date.now() + n * DAY).toISOString().slice(0, 10);
+
+/**
+ * Demo staff, one per role.
+ *
+ * Every account shares the seeded password because this exists to make the
+ * development sign-in buttons work; none of it is a model for real accounts.
+ */
+/** Clients given a portal login. Kept in step with DEMO_CLIENT_ACCOUNTS. */
+const PORTAL_CLIENT_EMAILS: readonly string[] = [
+  'joanne.whitfield@example.test',
+  'elaine.crozier@example.test',
+];
+
+const DEMO_STAFF = [
+  { email: 'leader@northgate.test', name: 'Dominic Ashworth', role: 'team-leader',
+    jobTitle: 'Team Leader', competencies: ['debt-advice', 'qa'] },
+  { email: 'compliance@northgate.test', name: 'Yewande Balogun', role: 'compliance-officer',
+    jobTitle: 'Compliance Officer', competencies: ['qa', 'compliance'] },
+  { email: 'administrator@northgate.test', name: 'Priya Chandran', role: 'firm-administrator',
+    jobTitle: 'Firm Administrator', competencies: [] },
+  { email: 'caseadmin@northgate.test', name: 'Tom Reilly', role: 'case-administrator',
+    jobTitle: 'Case Administrator', competencies: [] },
+  { email: 'ip@northgate.test', name: 'Alastair Menzies', role: 'insolvency-practitioner',
+    jobTitle: 'Insolvency Practitioner', competencies: ['debt-advice', 'insolvency'] },
+] as const;
 
 const SCENARIOS: Scenario[] = [
   {

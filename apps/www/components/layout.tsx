@@ -1,5 +1,18 @@
 import Link from 'next/link';
 
+/**
+ * Where the portals live.
+ *
+ * Each app is its own deployment, so these are configured rather than
+ * hard-coded. The defaults are the local development ports, which is what makes
+ * the site usable as the front door with nothing else set.
+ */
+export const PORTALS = {
+  console: process.env['NEXT_PUBLIC_CONSOLE_URL'] ?? 'http://127.0.0.1:3000',
+  client: process.env['NEXT_PUBLIC_CLIENT_URL'] ?? 'http://127.0.0.1:3001',
+  control: process.env['NEXT_PUBLIC_CONTROL_URL'] ?? 'http://127.0.0.1:3002',
+};
+
 const NAV = [
   { href: '/platform', label: 'Platform' },
   { href: '/intelligence', label: 'Intelligence' },
@@ -23,10 +36,16 @@ export function SiteHeader() {
         <nav className="mk-nav" aria-label="Main">
           {NAV.map((item) => <Link key={item.href} href={item.href}>{item.label}</Link>)}
         </nav>
-        <Link href="/contact" className="mk-btn mk-btn--secondary"
-              style={{ padding: 'var(--space-2) var(--space-4)', minHeight: 40 }}>
-          Talk to us
-        </Link>
+        <div className="mk-header__actions">
+          <Link href="/sign-in" className="mk-btn mk-btn--secondary"
+                style={{ padding: 'var(--space-2) var(--space-4)', minHeight: 40 }}>
+            Sign in
+          </Link>
+          <Link href="/contact" className="mk-btn mk-btn--primary"
+                style={{ padding: 'var(--space-2) var(--space-4)', minHeight: 40 }}>
+            Talk to us
+          </Link>
+        </div>
       </div>
     </header>
   );
@@ -54,6 +73,12 @@ export function SiteFooter() {
             <h4>Commercial</h4>
             <Link href="/pricing">Pricing</Link>
             <Link href="/contact">Talk to us</Link>
+          </div>
+          <div>
+            <h4>Sign in</h4>
+            <a href={PORTALS.console}>Adviser console</a>
+            <a href={PORTALS.client}>Client portal</a>
+            <a href={PORTALS.control}>Solvenda Control</a>
           </div>
         </div>
         <p style={{ marginTop: 'var(--space-6)', marginBottom: 0 }}>

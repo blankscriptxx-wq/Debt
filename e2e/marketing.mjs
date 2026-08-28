@@ -8,6 +8,7 @@
  * the exact failure mode this project treats as "not built".
  */
 import { chromium } from 'playwright';
+import { totpCodeAt } from '../packages/auth/src/totp.js';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3003';
 const OUT = process.env.SHOT_DIR ?? '/tmp/shots';
@@ -193,6 +194,9 @@ try {
   await control.goto(`${CONTROL}/sign-in`, { waitUntil: 'domcontentloaded' });
   await control.fill('input[name=email]', 'operator@solvenda.test');
   await control.fill('input[name=password]', 'a perfectly reasonable passphrase');
+  await control.fill('input[name=totp]',
+                     totpCodeAt(process.env.SEED_OPERATOR_TOTP_SECRET
+                                ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP', Date.now()));
   await control.click('button[type=submit]');
   await control.waitForURL(`${CONTROL}/`, { timeout: 20000 });
   await control.goto(`${CONTROL}/enquiries`, { waitUntil: 'domcontentloaded' });

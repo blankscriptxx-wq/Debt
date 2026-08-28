@@ -6,6 +6,13 @@
  * recorded grant.
  */
 import { chromium } from 'playwright';
+import { totpCodeAt } from '../packages/auth/src/totp.js';
+
+/** Matches the seed. Development values; nothing here is a real credential. */
+const OPERATOR_TOTP_SECRET = process.env.SEED_OPERATOR_TOTP_SECRET
+  ?? 'JBSWY3DPEHPK3PXPJBSWY3DPEHPK3PXP';
+const OPERATOR_ID = process.env.SOLVENDA_SIGNIN_OPERATOR_ID
+  ?? '00000000-0000-0000-0000-000000000001';
 
 const BASE = process.env.BASE_URL ?? 'http://127.0.0.1:3002';
 const OUT = process.env.SHOT_DIR ?? '/tmp/shots';
@@ -33,8 +40,29 @@ try {
   await page.waitForURL(/error=/, { timeout: 15000 });
   check('rejects bad operator credentials', page.url().includes('error='));
 
+  // A password alone is no longer enough: operator sign-in refuses an account
+  // with no second factor and refuses a missing code.
   await page.fill('input[name=email]', 'operator@solvenda.test');
   await page.fill('input[name=password]', 'a perfectly reasonable passphrase');
+  await page.click('button[type=submit]');
+  await page.waitForURL(/error=mfa_required/, { timeout: 15000 });
+  check('refuses a correct password without a second factor',
+        page.url().includes('error=mfa_required'));
+
+  // The cookie is a bearer token, not the operator's id. Setting the id by hand
+  // used to be a complete authentication bypass.
+  const forged = await browser.newPage();
+  await forged.context().addCookies([{
+    name: 'solvenda_operator', value: OPERATOR_ID, url: BASE,
+  }]);
+  await forged.goto(`${BASE}/`, { waitUntil: 'domcontentloaded' });
+  check('a hand-set operator id does not authenticate', forged.url().includes('/sign-in'),
+        forged.url());
+  await forged.close();
+
+  await page.fill('input[name=email]', 'operator@solvenda.test');
+  await page.fill('input[name=password]', 'a perfectly reasonable passphrase');
+  await page.fill('input[name=totp]', totpCodeAt(OPERATOR_TOTP_SECRET, Date.now()));
   await page.click('button[type=submit]');
   await page.waitForURL(`${BASE}/`, { timeout: 20000 });
   await page.waitForSelector('.sv-page-header__title');

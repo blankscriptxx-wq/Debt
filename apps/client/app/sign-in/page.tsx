@@ -1,7 +1,10 @@
 import { redirect } from 'next/navigation';
 import { cookies } from 'next/headers';
 import { sql, withTenant, withPlatform } from '@solvenda/db';
-import { login } from '@solvenda/auth';
+import {
+  DEMO_CLIENT_ACCOUNTS, DEMO_FIRM_SLUG, demoLogin, demoLoginEnabled, login,
+} from '@solvenda/auth';
+import { DemoSignIn } from '@solvenda/ui';
 import { SESSION_COOKIE, TENANT_COOKIE, currentClient } from '@/lib/session';
 
 export const dynamic = 'force-dynamic';
@@ -44,6 +47,39 @@ async function signIn(formData: FormData) {
   jar.set(TENANT_COOKIE, tenantId, {
     httpOnly: true, secure, sameSite: 'lax', path: '/', expires: outcome.session.expiresAt,
   });
+  redirect('/');
+}
+
+/** One-click sign-in for development. Refuses unless the demo switch is on. */
+async function signInAsDemo(formData: FormData) {
+  'use server';
+
+  const email = String(formData.get('email') ?? '');
+  if (!DEMO_CLIENT_ACCOUNTS.some((a) => a.email === email)) redirect('/sign-in?error=credentials');
+
+  const tenantId = await withPlatform(
+    { operatorId: process.env['SOLVENDA_SIGNIN_OPERATOR_ID'] ?? ZERO_UUID,
+      reason: 'resolve firm for demo client sign-in' },
+    async (db) => {
+      const res = await db.execute<{ id: string }>(sql`
+        SELECT id FROM tenants WHERE slug = ${DEMO_FIRM_SLUG}`);
+      return res.rows[0]?.id ?? null;
+    },
+  ).catch(() => null);
+  if (!tenantId) redirect('/sign-in?error=credentials');
+
+  const context = { tenantId, actorType: 'system' as const, actorLabel: 'demo client sign-in' };
+  const outcome = await withTenant(context, (db) => demoLogin(db, context, { email }));
+  if (!outcome.ok) redirect('/sign-in?error=credentials');
+
+  const jar = await cookies();
+  const secure = process.env['NODE_ENV'] === 'production';
+  const options = {
+    httpOnly: true, secure, sameSite: 'lax' as const, path: '/',
+    expires: outcome.session.expiresAt,
+  };
+  jar.set(SESSION_COOKIE, outcome.session.token, options);
+  jar.set(TENANT_COOKIE, tenantId, options);
   redirect('/');
 }
 
@@ -91,6 +127,11 @@ export default async function SignInPage({
           </label>
           <button className="cp-btn cp-btn--primary" type="submit">Sign in</button>
         </form>
+
+        {demoLoginEnabled() && (
+          <DemoSignIn accounts={DEMO_CLIENT_ACCOUNTS} action={signInAsDemo}
+                      note="One click, no password. Two clients whose cases differ in ways worth seeing." />
+        )}
 
         <p style={{ marginTop: 'var(--space-6)', color: 'var(--ink-muted)',
                     fontSize: 'var(--text-base)', lineHeight: 'var(--leading-relaxed)' }}>

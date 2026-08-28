@@ -311,3 +311,52 @@ export function Grid({ min = '260px', children }: { min?: string; children: Reac
     <div className="sv-grid" style={{ ['--sv-grid-min' as string]: min }}>{children}</div>
   );
 }
+
+export interface DemoAccountOption {
+  key: string;
+  label: string;
+  detail: string;
+  email: string;
+}
+
+/**
+ * The development sign-in panel.
+ *
+ * Renders one button per account, each a form posting that account's email to
+ * the server action the portal supplies. It is styled as a warning on purpose:
+ * this is a hole in authentication and it should look like one on every screen
+ * it appears on, so nobody mistakes it for a product feature.
+ *
+ * Callers are expected to render it only when demo sign-in is enabled. The
+ * server action refuses independently, so a stale render cannot let anyone in.
+ */
+export function DemoSignIn({
+  accounts, action, note,
+}: {
+  accounts: readonly DemoAccountOption[];
+  action: (formData: FormData) => void | Promise<void>;
+  note?: string;
+}) {
+  return (
+    <div className="sv-demo">
+      <p className="sv-demo__label">
+        <span aria-hidden="true">⚠</span> Development sign-in
+      </p>
+      <p className="sv-demo__note">
+        {note ?? 'One click, no password and no second factor. Enabled by an environment '
+          + 'variable and intended for development only.'}
+      </p>
+      <div className="sv-demo__list">
+        {accounts.map((account) => (
+          <form key={account.key} action={action}>
+            <input type="hidden" name="email" value={account.email} />
+            <button className="sv-demo__btn" type="submit">
+              <strong>{account.label}</strong>
+              <span>{account.detail}</span>
+            </button>
+          </form>
+        ))}
+      </div>
+    </div>
+  );
+}

@@ -3,6 +3,7 @@ import { sql, type Database, type TenantContext } from '@solvenda/db';
 import { recordAudit } from '@solvenda/audit';
 import { verifyPassword } from './password.js';
 import { verifyTotp } from './totp.js';
+import { assertDemoLoginEnabled } from './demo.js';
 
 /**
  * Session lifetimes. Two clocks: an idle timeout that keeps an unattended
@@ -26,9 +27,20 @@ export type LoginOutcome =
   | { ok: true; session: SessionToken; userId: string }
   | { ok: false; reason: 'invalid_credentials' | 'locked' | 'not_active' | 'mfa_invalid' };
 
-function hashToken(token: string): string {
+/**
+ * Exported so the operator console hashes bearer tokens the same way rather
+ * than growing a second definition that could drift from this one.
+ */
+export function hashSessionToken(token: string): string {
   return createHash('sha256').update(token).digest('hex');
 }
+
+/** A bearer value. Returned to the caller once; only its hash is stored. */
+export function mintSessionToken(): string {
+  return randomBytes(32).toString('base64url');
+}
+
+const hashToken = hashSessionToken;
 
 interface UserRow {
   [key: string]: unknown;
@@ -267,4 +279,35 @@ async function audit(
     action, resourceType: 'user', resourceId, reason, source: 'auth',
     ip: input.ip ?? null, userAgent: input.userAgent ?? null,
   });
+}
+
+/**
+ * Opens a session without a password, for the development sign-in buttons.
+ *
+ * Everything after "who are you" is unchanged: this mints a real session
+ * through `createSession`, so it expires on both clocks, it can be revoked, and
+ * it is audited. What it skips is proving identity, which is why it refuses
+ * unless the demo switch is on and why the audit row says plainly that no
+ * credentials were checked.
+ */
+export async function demoLogin(
+  db: Database,
+  ctx: TenantContext,
+  input: { email: string; ip?: string | null; userAgent?: string | null },
+): Promise<LoginOutcome> {
+  assertDemoLoginEnabled();
+
+  const res = await db.execute<{ id: string; status: string }>(sql`
+    SELECT id, status FROM users WHERE email = ${input.email}`);
+  const user = res.rows[0];
+  if (!user || user.status !== 'active') return { ok: false, reason: 'invalid_credentials' };
+
+  const session = await createSession(db, user.id, true, input);
+  await db.execute(sql`
+    UPDATE users SET failed_login_count = 0, locked_until = NULL, last_login_at = now()
+     WHERE id = ${user.id}`);
+  await audit(db, { ...ctx, userId: user.id }, 'auth.login.succeeded', user.id, input,
+    'Demo sign-in: no credentials were checked');
+
+  return { ok: true, session: { ...session, mfaRequired: false }, userId: user.id };
 }

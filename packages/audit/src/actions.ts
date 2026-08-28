@@ -20,6 +20,12 @@ export const AUDIT_ACTIONS = {
   'access.permission.denied': { severity: 'security' },
   'platform.impersonation.started': { severity: 'security' },
   'platform.impersonation.ended': { severity: 'security' },
+  // Operator sign-in is tracked separately from tenant sign-in because the
+  // blast radius differs: an operator reaches configuration for every firm.
+  'platform.login.succeeded': { severity: 'notable' },
+  'platform.login.failed': { severity: 'security' },
+  'platform.login.locked': { severity: 'security' },
+  'platform.session.revoked': { severity: 'security' },
 
   // client and case lifecycle
   'client.created': { severity: 'notable' },

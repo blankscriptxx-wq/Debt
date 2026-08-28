@@ -6,3 +6,4 @@ export * from './session.js';
 export * from './principal.js';
 export * from './platform-access.js';
 export * from './provision.js';
+export * from './demo.js';
