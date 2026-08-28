@@ -107,6 +107,21 @@ the site still builds and every page still renders — the pricing figures are a
 build-time import, not a query — but a submitted enquiry returns "We could not
 record that", which is at least honest about having failed.
 
+## Inbound WhatsApp
+
+`/api/webhooks/whatsapp` verifies Meta's `x-hub-signature-256` against
+`WHATSAPP_WEBHOOK_SECRET`. **Without that variable the endpoint refuses
+everything with a 503**, because an unsigned webhook endpoint is an open door to
+writing messages into somebody's case file — a missing secret must not mean an
+open door. So a deployment with no secret set has a working inbox and no way for
+anything to arrive in it, which is the safe half of the failure and worth
+knowing about deliberately rather than discovering when a firm connects a
+number.
+
+It is currently unset on the Vercel project. Nothing is pointed at the endpoint
+yet, so nothing is failing; set it at the same time as connecting a real number,
+and set it to the same value configured on the provider's side.
+
 ## The development sign-in buttons
 
 Every portal can offer one-click sign-in to a seeded account: six staff roles on
