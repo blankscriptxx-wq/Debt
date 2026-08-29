@@ -345,7 +345,132 @@ try {
         (await page.locator('.sv-context').innerText()).includes(target),
         `${target} is outstanding again`);
 
-  check('no uncaught client errors', errors.length === 0, errors.slice(0, 3).join(' | '));
+  // --- a disclosure nobody asked for -----------------------------------------
+  // The claim: a client mentioning their health in passing does not sit in a
+  // log until somebody scrolls past it. It is read on arrival and put in front
+  // of an adviser as something to decide.
+  const disclosure = `I have been signed off sick and it is getting worse (${stamp})`;
+  await deliver({ from: CLIENT_NUMBER, text: disclosure });
+
+  // The assessment runs after the response is flushed, so the 202 does not wait
+  // on a model. Poll rather than assume it has landed.
+  let signalSeen = false;
+  for (let attempt = 0; attempt < 15 && !signalSeen; attempt += 1) {
+    await page.goto(`${BASE}/app/inbox?filter=all`, { waitUntil: 'domcontentloaded' });
+    await page.waitForSelector('.sv-inbox');
+    signalSeen = await page.locator('.sv-inbox__item', { hasText: 'Elaine' })
+      .filter({ hasText: 'Vulnerability signal' }).count() > 0;
+    if (!signalSeen) await page.waitForTimeout(1000);
+  }
+  check('an inbound message is read for signs of vulnerability, and the queue says so',
+        signalSeen, 'the badge is on the conversation');
+
+  await open('Elaine');
+  check('the thread says how many are waiting without repeating what was said',
+        (await page.locator('.sv-context__vulnPending').innerText()).includes('waiting'),
+        'recording it is a regulated act, so the inbox is read-only for it');
+
+  // --- deciding it, on the case file ----------------------------------------
+  const vulnHref = await page.locator('.sv-context__vulnPending a').getAttribute('href');
+  await page.goto(`${BASE}${vulnHref}`, { waitUntil: 'domcontentloaded' });
+  await page.waitForSelector('.sv-proposal');
+
+  const proposal = page.locator('.sv-proposal').first();
+  check('the signal is marked as affecting regulated information',
+        (await proposal.innerText()).toLowerCase().includes('affects regulated information'));
+  check('and shows the client’s own words rather than a JSON blob',
+        await proposal.locator('.sv-proposal__quote').count() === 1);
+
+  check('the consent permitting health information is on file, and says which condition',
+        (await page.locator('.sv-vuln__consent').innerText()).includes('On file'));
+
+  // A client taking their consent back is the case that matters. From this
+  // moment nothing further may be recorded under it, and the product has to
+  // behave that way rather than merely say so.
+  const revoke = page.locator('.sv-vuln__revoke');
+  await revoke.locator('input[name=reason]')
+    .fill(`Client asked us to stop holding this (${stamp})`);
+  await revoke.locator('button', { hasText: 'Withdraw consent' }).click();
+  await page.locator('.sv-vuln__consent--missing').waitFor({ timeout: 20000 });
+  check('withdrawing it is recorded, and says what it now prevents',
+        (await page.locator('.sv-vuln__consent--missing').count()) === 1,
+        'no consent on file names an Article 9 condition');
+
+  // Records written while consent stood are kept: the client did consent, then
+  // withdrew, and both are true. So what matters is that refusing adds nothing.
+  const recordsBefore = await page.locator('.sv-vuln__record').count();
+
+  // An adviser judging the same disclosure to be about health is the case the
+  // gate exists for.
+  await proposal.locator('button', { hasText: 'Record it differently' }).click();
+  await proposal.locator('select').selectOption('health');
+  await proposal.locator('button', { hasText: 'Apply this value' }).click();
+
+  const refusal = proposal.locator('.sv-error');
+  await refusal.waitFor({ timeout: 20000 });
+  // The promise made in 0009 and never kept until now.
+  check('recording health information without a consent for it is refused',
+        (await refusal.innerText()).toLowerCase().includes('consent'),
+        (await refusal.innerText()).slice(0, 80));
+  check('and nothing was written down',
+        (await page.locator('.sv-vuln__record').count()) === recordsBefore,
+        `${recordsBefore} before, ${recordsBefore} after`);
+
+  await page.screenshot({ path: `${OUT}/vulnerability-refused.png` });
+
+  // --- capturing the consent, then recording it -----------------------------
+  await page.locator('form button', { hasText: 'Record the client’s consent' }).click();
+  await page.locator('.sv-vuln__revoke').waitFor({ timeout: 20000 });
+  check('capturing the consent says so plainly',
+        (await page.locator('.sv-vuln__consent').innerText()).includes('On file'));
+
+  const again = page.locator('.sv-proposal').first();
+  await again.locator('button', { hasText: 'Record it differently' }).click();
+  await again.locator('select').selectOption('health');
+  await again.locator('button', { hasText: 'Apply this value' }).click();
+
+  const recorded = page.locator('.sv-vuln__record');
+  await page.waitForFunction(
+    (n) => document.querySelectorAll('.sv-vuln__record').length > n,
+    recordsBefore, { timeout: 20000 });
+  check('the same signal now records, once consent permits it',
+        await recorded.count() === recordsBefore + 1,
+        `${recordsBefore} → ${await recorded.count()}`);
+
+  const aiRecord = recorded.filter({ hasText: 'AI indicator' }).first();
+  const recordText = await aiRecord.innerText();
+  check('and the file shows a model suggested it and a person agreed',
+        recordText.toLowerCase().includes('ai indicator'),
+        recordText.split('\n').find((l) => l.toLowerCase().includes('ai indicator')) ?? '');
+  check('marked as special category, because that is what it is',
+        recordText.toLowerCase().includes('special category'));
+
+  await page.screenshot({ path: `${OUT}/vulnerability-recorded.png` });
+
+  // --- the spine moves ------------------------------------------------------
+  const spineText = await page.locator('.sv-spine').innerText();
+  check('the case now counts as assessed for vulnerability',
+        spineText.includes('Vulnerability'), 'the spine carries its own section');
+
+  // --- and an assessment that found nothing is still an assessment ----------
+  // Restoring the fixture and proving a property at once: withdrawing the
+  // record leaves the case unassessed, which is what makes "no indicators
+  // identified" worth recording at all.
+  const closing = aiRecord.locator('.sv-vuln__actions form').last();
+  await closing.locator('select[name=status]').selectOption('withdrawn');
+  await closing.locator('input[name=reason]').fill(`Fixture reset (${stamp})`);
+  await closing.locator('button', { hasText: 'Close' }).click();
+  await page.waitForURL(/saved=|error=/, { timeout: 20000 });
+
+  check('a record cannot be deleted, only withdrawn',
+        (await page.locator('.sv-vuln__closed').innerText()).includes('withdrawn'),
+        'it was true at the time, so it is kept');
+
+  // The 409 is this suite refusing to record health information without a
+  // consent for it — the assertion above depends on it happening, so counting
+  // it as an unexpected error would mean the suite failing at working.
+  const unexpected = errors.filter((e) => !e.includes('409'));
+  check('no uncaught client errors', unexpected.length === 0, unexpected.slice(0, 3).join(' | '));
 } finally {
   await browser.close();
 }

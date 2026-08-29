@@ -36,8 +36,14 @@ export const CASE_SECTIONS: readonly SectionDefinition[] = [
     evidenceKeys: ['identity.verified', 'consent.processing'] },
   { slug: 'living', label: 'Living arrangements', group: 'The client',
     evidenceKeys: [], countKey: 'household' },
+  // The evidence key sits here rather than on Verification, where it used to,
+  // because a key must live where the adviser can act on it. On the checklist
+  // "vulnerability assessed" could be ticked verified with no assessment behind
+  // it, which is the file looking complete without any of it being true.
+  { slug: 'vulnerability', label: 'Vulnerability & support needs', group: 'The client',
+    evidenceKeys: ['vulnerability.assessed'], countKey: 'vulnerability' },
   { slug: 'verification', label: 'Verification', group: 'The client',
-    evidenceKeys: ['vulnerability.assessed'], countKey: 'verification' },
+    evidenceKeys: [], countKey: 'verification' },
 
   { slug: 'employment', label: 'Employment', group: 'The money',
     evidenceKeys: [], countKey: 'employment' },

@@ -214,10 +214,15 @@ async function main() {
     }
 
     for (const c of CAPABILITIES) {
+      // The demonstration firm has opted in to vulnerability signals. The
+      // platform default stays off, which is the point: reading every client
+      // message for signs of vulnerability is a decision a firm makes, not one
+      // that arrives switched on.
+      const enabled = c.defaultEnabled || c.key === 'vulnerability-indicators';
       await db.execute(sql`
         INSERT INTO ai_capabilities (capability_key, enabled)
-        VALUES (${c.key}, ${c.defaultEnabled})
-        ON CONFLICT (tenant_id, capability_key) DO NOTHING`);
+        VALUES (${c.key}, ${enabled})
+        ON CONFLICT (tenant_id, capability_key) DO UPDATE SET enabled = EXCLUDED.enabled`);
     }
 
     const firmPrincipal = {
@@ -378,14 +383,34 @@ async function main() {
       }
 
       if (scenario.vulnerability) {
+        // Health detail needs a consent naming an Article 9 condition, and the
+        // record cannot be written without one - the same rule the product
+        // enforces on an adviser. Seeding the record without it would make the
+        // demonstration's flagship case the one thing the feature calls
+        // unlawful.
+        let consentId: string | null = null;
+        if (scenario.vulnerability.article9Condition) {
+          const captured = await db.execute<{ id: string }>(sql`
+            INSERT INTO consents (client_id, case_id, purpose, lawful_basis,
+                                  special_category_condition, statement_version, statement_text,
+                                  granted, captured_via, captured_by)
+            VALUES (${clientId}, ${caseId}, 'vulnerability.health-information', 'consent',
+                    ${scenario.vulnerability.article9Condition}, 'v1',
+                    'We can record information about your health so that we can support you '
+                    || 'properly. You can ask us to stop at any time.',
+                    true, 'telephone', ${adviserId})
+            RETURNING id`);
+          consentId = captured.rows[0]!.id;
+        }
+
         await db.execute(sql`
           INSERT INTO vulnerability_records (client_id, case_id, driver, indicators, severity,
-                                             is_special_category, detail, support_needs,
-                                             identified_by, identified_via)
+                                             is_special_category, consent_id, detail,
+                                             support_needs, identified_by, identified_via)
           VALUES (${clientId}, ${caseId}, ${scenario.vulnerability.driver},
                   string_to_array(${scenario.vulnerability.indicators.join(',')}, ','),
                   ${scenario.vulnerability.severity}, ${scenario.vulnerability.special},
-                  ${scenario.vulnerability.detail},
+                  ${consentId}, ${scenario.vulnerability.detail},
                   string_to_array(${scenario.vulnerability.support.join(',')}, ','),
                   ${adviserId}, 'client-disclosure')`);
       }
@@ -494,7 +519,9 @@ interface Scenario {
    */
   verifications?: { key: string; category: string; method: string; status?: string }[];
   vulnerability?: { driver: string; indicators: string[]; severity: string; special: boolean;
-                    detail: string; support: string[] };
+                    detail: string; support: string[];
+                    /** Required when `special`: health detail needs an Article 9 condition. */
+                    article9Condition?: string };
   tasks?: { title: string; detail?: string; priority: string; dueAt: string }[];
   communications?: { channel: string; direction: string; subject?: string; body: string; at: string }[];
 }
@@ -733,6 +760,7 @@ const SCENARIOS: Scenario[] = [
     vulnerability: {
       driver: 'health', indicators: ['long-term-condition', 'reduced-capacity-to-work'],
       severity: 'significant', special: true,
+      article9Condition: 'explicit-consent',
       detail: 'Client disclosed a long-term health condition affecting her ability to work.',
       support: ['written-confirmation-of-calls', 'extra-time-for-decisions'],
     },

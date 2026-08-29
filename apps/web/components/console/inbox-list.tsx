@@ -81,6 +81,12 @@ export function InboxList({
                     {c.attachmentsWaiting} to file
                   </Badge>
                 )}
+                {/* Something a client said that somebody needs to look at.
+                    Deliberately a mark on the queue and not a summary of what
+                    was said: the thread is where that belongs. */}
+                {c.tags.includes('vulnerability-signal') && (
+                  <Badge tone="attention">Vulnerability signal</Badge>
+                )}
                 {c.assignedName && (
                   <span className="sv-inbox__owner">{c.assignedName.split(' ')[0]}</span>
                 )}

@@ -30,6 +30,8 @@ export interface ConversationSummary {
   lastMessagePreview: string | null;
   replyDueAt: string | null;
   attachmentsWaiting: number;
+  /** Free-form marks on the thread. Carried whole, so the next feature can use it. */
+  tags: string[];
 }
 
 export async function loadInbox(
@@ -41,9 +43,9 @@ export async function loadInbox(
     : filter === 'unmatched' ? sql`AND c.client_id IS NULL AND c.status <> 'closed'`
     : sql`AND c.status <> 'closed'`;
 
-  const res = await db.execute<Record<string, string | null>>(sql`
+  const res = await db.execute<Record<string, string | null> & { tags: string[] }>(sql`
     SELECT c.id, c.channel, c.counterparty_label, c.counterparty_identifier,
-           c.client_id, c.case_id, c.status, c.assigned_to,
+           c.client_id, c.case_id, c.status, c.assigned_to, c.tags,
            c.first_unread_at::text, c.last_message_at::text, c.last_message_preview,
            c.reply_due_at::text,
            cl.first_name || ' ' || cl.last_name AS client_name,
@@ -81,6 +83,7 @@ export async function loadInbox(
     lastMessagePreview: r['last_message_preview'] ?? null,
     replyDueAt: r['reply_due_at'] ?? null,
     attachmentsWaiting: Number(r['attachments_waiting'] ?? '0'),
+    tags: r.tags ?? [],
   }));
 }
 

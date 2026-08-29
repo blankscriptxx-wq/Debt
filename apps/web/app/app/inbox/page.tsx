@@ -10,6 +10,8 @@ import { EmptyState } from '@solvenda/ui';
 import { caseContext } from '@/lib/console/case-context';
 import { outstandingEvidence } from '@solvenda/core';
 import { listTemplates, resolveSignature, type TemplateSummary } from '@solvenda/comms';
+import { listVulnerabilityRecords } from '@solvenda/core';
+import { pendingProposalsForClient } from '@solvenda/ai';
 
 export const dynamic = 'force-dynamic';
 
@@ -70,6 +72,18 @@ export default async function InboxPage({
     .then((s) => s.text)
     .catch(() => null);
 
+  // What the firm has agreed to do differently for this person, and how many
+  // signals nobody has decided yet. Both belong beside the composer: the first
+  // because an adviser about to write should know what was promised, the second
+  // because a queue that is only visible on the case file is a queue that waits.
+  const [support, pendingSignals] = conversation?.clientId
+    ? await Promise.all([
+        query(session, (db) => listVulnerabilityRecords(db, conversation.clientId!)),
+        query(session, (db) =>
+          pendingProposalsForClient(db, conversation.clientId!, 'vulnerability-consideration')),
+      ])
+    : [[], []];
+
   // The case behind the conversation, so the context pane can say what is
   // outstanding — which is also what makes an attachment suggestion specific.
   const context = conversation?.caseId ? await caseContext(conversation.caseId) : null;
@@ -126,6 +140,13 @@ export default async function InboxPage({
           outstanding={outstanding.map((e) => ({
             key: e.key, label: e.label, state: e.state, because: e.because,
           }))}
+          support={support
+            .filter((r) => r.driver !== 'none')
+            .map((r) => ({
+              driver: r.driver, severity: r.severity,
+              supportNeeds: r.supportNeeds, adjustmentsAgreed: r.adjustmentsAgreed,
+            }))}
+          pendingSignals={pendingSignals.length}
         />
       </div>
     </AppShell>

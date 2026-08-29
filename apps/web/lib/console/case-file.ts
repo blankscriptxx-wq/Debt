@@ -59,6 +59,9 @@ export async function loadTabCounts(
              WHERE case_id = ${caseId} AND status = 'scheduled') AS appointments,
            (SELECT count(*) FROM verification_items
              WHERE case_id = ${caseId} AND status = 'outstanding') AS verification,
+           (SELECT count(*) FROM vulnerability_records
+             WHERE client_id = ${clientId} AND status = 'active'
+               AND driver <> 'none') AS vulnerability,
            (SELECT count(*) FROM communications
              WHERE case_id = ${caseId} AND channel <> 'internal-note') AS messages`);
   const row = res.rows[0]!;

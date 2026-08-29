@@ -145,3 +145,22 @@ html, body { max-width: 100%; overflow-x: hidden; }
 }
 .sv-palette__item[aria-selected='true'] { background: var(--accent-subtle); color: var(--accent); }
 .sv-palette__hint { font-size: var(--text-xs); color: var(--ink-subtle); }
+
+/* --- a suggestion that cannot be acted on yet ----------------------------- */
+/* Health information without a consent permitting it. Stated where the accept
+   button would have been, so it is read before the click rather than as a
+   refusal after it. */
+.sv-proposal__blocked {
+  margin: var(--space-2) 0 0; padding: var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--attention-subtle); color: var(--attention);
+  font-size: var(--text-sm);
+}
+/* The client's own words, rendered as words. They are what an adviser judges a
+   signal by, and they used to arrive inside a JSON blob. */
+.sv-proposal__quote {
+  margin: var(--space-2) 0; padding: var(--space-2) var(--space-3);
+  border-left: 3px solid var(--regulated);
+  background: var(--surface-sunken); border-radius: var(--radius-sm);
+  font-size: var(--text-sm); font-style: italic; color: var(--ink);
+}

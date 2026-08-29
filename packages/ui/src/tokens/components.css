@@ -764,3 +764,81 @@
   .sv-thread { max-height: 60vh; }
   .sv-context { overflow: visible; }
 }
+
+/* --- vulnerability and support needs -------------------------------------- */
+.sv-vuln__record {
+  padding: var(--space-4); border: 1px solid var(--border);
+  border-radius: var(--radius-lg); background: var(--surface);
+}
+/* Special-category data reads as such at a glance, so nobody handles it as
+   ordinary case admin. */
+.sv-vuln__record--special { border-color: var(--regulated); background: var(--regulated-subtle); }
+.sv-vuln__head {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  margin-bottom: var(--space-2);
+}
+.sv-vuln__driver { font-weight: 600; text-transform: capitalize; }
+/* Colour and a glyph, never colour alone - the same rule EvidenceState follows,
+   so severity survives being printed and being colour-blind. */
+.sv-vuln__severity { font-size: var(--text-sm); color: var(--ink-muted); }
+.sv-vuln__severity--possible { color: var(--ink-muted); }
+.sv-vuln__severity--present { color: var(--attention); }
+.sv-vuln__severity--significant { color: var(--critical); font-weight: 600; }
+.sv-vuln__indicators {
+  margin: 0 0 var(--space-2); padding-left: var(--space-4); font-size: var(--text-sm);
+}
+.sv-vuln__detail { margin: 0 0 var(--space-2); font-size: var(--text-sm); }
+.sv-vuln__needs, .sv-vuln__adjustments {
+  margin: 0 0 var(--space-2); font-size: var(--text-sm);
+  display: flex; gap: var(--space-2); flex-wrap: wrap; align-items: baseline;
+}
+.sv-vuln__provenance {
+  margin: var(--space-2) 0; font-size: var(--text-2xs); color: var(--ink-subtle);
+}
+.sv-vuln__actions {
+  display: flex; gap: var(--space-3); flex-wrap: wrap; align-items: flex-end;
+  margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+/* An assessment that found nothing is a recorded fact, so it is styled as one
+   rather than as an empty state. */
+.sv-vuln__none {
+  margin: 0; padding: var(--space-3); border-radius: var(--radius-md);
+  background: var(--positive-subtle); color: var(--positive); font-size: var(--text-sm);
+}
+.sv-vuln__nothing {
+  display: flex; align-items: center; gap: var(--space-3); flex-wrap: wrap;
+  margin-bottom: var(--space-4); padding-bottom: var(--space-4);
+  border-bottom: 1px solid var(--border);
+}
+.sv-vuln__consent { margin: 0 0 var(--space-3); font-size: var(--text-sm); }
+.sv-vuln__consent--missing { color: var(--attention); }
+.sv-vuln__consentList {
+  margin: var(--space-3) 0 0; padding-left: var(--space-4);
+  font-size: var(--text-2xs); color: var(--ink-subtle);
+}
+.sv-vuln__closed {
+  margin: 0; padding-left: var(--space-4); font-size: var(--text-sm); color: var(--ink-muted);
+}
+
+/* What the firm agreed to do differently, beside the composer. */
+.sv-context__vuln {
+  margin-top: var(--space-4); padding: var(--space-3);
+  border-left: 3px solid var(--regulated); border-radius: var(--radius-sm);
+  background: var(--regulated-subtle);
+}
+.sv-context__vulnItem + .sv-context__vulnItem {
+  margin-top: var(--space-3); padding-top: var(--space-3);
+  border-top: 1px solid var(--border);
+}
+.sv-context__vulnDriver {
+  font-size: var(--text-2xs); text-transform: uppercase; letter-spacing: 0.04em;
+  color: var(--regulated); font-weight: 600;
+}
+.sv-context__vulnAgreed { margin: var(--space-1) 0 0; font-size: var(--text-sm); }
+.sv-context__vulnNeeds {
+  margin: var(--space-1) 0 0; font-size: var(--text-xs); color: var(--ink-muted);
+}
+.sv-context__vulnPending {
+  margin-top: var(--space-3); font-size: var(--text-xs); color: var(--attention);
+}

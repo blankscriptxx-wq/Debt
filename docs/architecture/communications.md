@@ -238,10 +238,8 @@ omnichannel architecture is the fallback if a firm cannot get it.
 
 **Special-category data.** A client in financial difficulty will disclose health
 information over WhatsApp, unprompted, because it is why they are in difficulty.
-That is Article 9 data arriving in a chat log. Inbound text carrying
-vulnerability indicators must be surfaced into the existing vulnerability model
-rather than sitting in a thread nobody assessed. *Designed, not yet built — the
-most important remaining item.*
+That is Article 9 data arriving in a chat log. Inbound text is now read for
+FG21/1 signals on delivery and surfaced as a proposal — see §11a.
 
 **The rest.** Webhook signatures verified in constant time; a missing secret
 refuses everything rather than accepting everything; unknown numbers get
@@ -250,7 +248,62 @@ quarantined until scanned; retention through the existing `retention_class` /
 `delete_after` / `legal_hold`; tenant isolation by row-level security under a
 role that cannot bypass it.
 
+## 11a. Vulnerability from what a client writes
+
+Every inbound message from an identified client is read for FG21/1 signals
+(`packages/comms/src/vulnerability-scan.ts`), and what it finds becomes a
+proposal a named person decides. Nothing about it is a shortcut: the AI
+principal is not granted `vulnerability:write`, and the authorisation engine
+refuses automation any regulated permission, so there is no code path from a
+signal to a record that does not pass through somebody.
+
+It runs in `after()` rather than inline. The provider redelivers a webhook that
+does not answer promptly and `receiveInbound` inserts unconditionally, so a slow
+model call on the delivery path would produce duplicate messages as well as a
+slow reply. Attachments stay before the response, because their bytes expire in
+minutes and an assessment does not.
+
+Three refusals are the design:
+
+- **An unidentified conversation is not assessed at all.** The person may not be
+  a client, and a permanent record of a possible health disclosure attached to
+  nobody is worse than not looking.
+- **A firm that has not opted in accumulates nothing** — no invocation, no audit
+  row, not even a note that scanning was considered. The capability ships
+  disabled and a firm turns it on deliberately.
+- **Health information cannot be recorded without a consent naming an Article 9
+  condition** (`packages/core/src/case-file/vulnerability.ts`). Migration 0009
+  claimed this was enforced in `@solvenda/core` and it never was. It is now, with
+  the database holding the column-level half underneath, and it refuses with the
+  reason named — no consent, no condition, withdrawn, expired, wrong client,
+  refused — because "consent required" is not something an adviser can act on.
+
+`is_special_category` is derived from the driver rather than accepted from the
+caller: knowing someone's difficulty is driven by their health *is* information
+about their health, so it cannot be declared away. The consent is checked
+**before** the proposal is decided, because a decision is immutable once made and
+the audit ledger is hash-chained — deciding first and failing after would strand
+a suggestion that could never be applied or re-decided.
+
+Internal notes are excluded from what the model sees. An adviser's note to a
+colleague is not the client speaking, and a model given it would quote the firm
+back at itself. Everything else is scrubbed by the existing allowlist and
+redaction path before it leaves.
+
+A model's confidence never becomes the firm's assertion: `weak` and `moderate`
+map to `possible`, `strong` to `present`, and **nothing maps to `significant`** —
+under FG21/1 that is a judgement that the firm must change how it deals with this
+person, which no model reading a chat log is in a position to make.
+
 ## 12. Data model
+
+Migration `0024_vulnerability_signals.sql`: `vulnerability_records.source_communication_id`;
+`'none'` admitted as a driver and severity so an assessment that found nothing is
+recordable, with a coherence check and one live "none" per client;
+`CHECK (is_special_category = false OR consent_id IS NOT NULL) NOT VALID`, which
+enforces on every write while grandfathering rows written before the gate existed;
+`ai_proposals.client_id`, because vulnerability belongs to a person and the
+inbound path resolves a case only when the client has exactly one open.
 
 Migration `0023_conversations.sql`: `channel_accounts`, `channel_identities`,
 `conversations`, `message_attachments`; `communications.conversation_id`;
@@ -269,7 +322,8 @@ survives being printed, being colour-blind and being glanced at from a metre.
 `comms.message.received`, `comms.conversation.linked` (security severity — it is
 where a mis-identification would be introduced), `comms.conversation.assigned`,
 `comms.attachment.filed`, `comms.attachment.quarantined`,
-`comms.template.activated`. A sent template records which template and version,
+`comms.template.activated`, and `vulnerability.recorded` / `.updated` (regulated,
+and until this work never emitted by anything). A sent template records which template and version,
 who signed it and whether a person did (`signedBy`, `humanSigned`). These feed the existing
 workflow engine and webhook delivery.
 

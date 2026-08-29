@@ -105,7 +105,8 @@ try {
         opened.includes('referral') && opened.includes('DMP-'),
         opened.replace(/\n+/g, ' · ').slice(0, 90));
   check('a brand new case still has a working spine',
-        await page.locator('.sv-spine__row').count() === 11);
+        await page.locator('.sv-spine__row').count() === 12,
+        `${await page.locator('.sv-spine__row').count()} sections`);
 
   // DMP-9100 exists for this suite alone. Working a demonstration case here
   // would change the totals the console and client portal suites assert on and
@@ -114,9 +115,15 @@ try {
   await page.locator('.sv-table tbody tr', { hasText: 'DMP-9100' }).locator('a').first().click();
   await page.waitForSelector('.sv-spine');
   const caseUrl = new URL(page.url()).pathname;
+  // An exact count, deliberately: a section quietly disappearing is the failure
+  // worth catching, and adding one is a decision somebody should have to come
+  // here and confirm.
   check('the case file opens with its spine',
-        await page.locator('.sv-spine__row').count() === 11,
+        await page.locator('.sv-spine__row').count() === 12,
         `${await page.locator('.sv-spine__row').count()} sections`);
+  check('and vulnerability is one of its sections, not a corner of verification',
+        (await page.locator('.sv-spine__row').allInnerTexts())
+          .some((t) => t.toLowerCase().includes('vulnerability')));
 
   // Case Intelligence stands at the head of the spine rather than behind a tab,
   // so it is present on every section, not only on the overview.
