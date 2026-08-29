@@ -47,7 +47,8 @@ export async function listCases(db: Database, options: {
            (SELECT count(*) FROM case_tasks t
              WHERE t.case_id = k.id AND t.status IN ('open','in-progress'))::text AS open_tasks,
            (SELECT count(*) FROM vulnerability_records v
-             WHERE v.client_id = c.id AND v.status = 'active')::text AS vulnerability_count
+             WHERE v.client_id = c.id AND v.status = 'active'
+               AND v.driver <> 'none')::text AS vulnerability_count
       FROM cases k
       JOIN clients c ON c.id = k.client_id
       LEFT JOIN users u ON u.id = k.owner_user_id
@@ -158,11 +159,17 @@ export async function loadCaseDetail(db: Database, caseId: string): Promise<Case
           FROM affordability_assessments WHERE case_id = ${caseId}
          ORDER BY assessed_at DESC LIMIT 1`);
 
+  // `driver <> 'none'` is load-bearing. A recorded "no indicators identified" is
+  // an active record — that is what makes the case count as assessed — but it is
+  // the opposite of a vulnerability, and counting it here would raise a
+  // regulated "Vulnerability recorded" signal against every client who was
+  // assessed and found clear.
   const vulnerability = await db.execute<{ n: string; drivers: string[]; severity: string | null }>(sql`
     SELECT count(*)::text AS n,
            coalesce(array_agg(DISTINCT driver), '{}') AS drivers,
            max(severity) AS severity
-      FROM vulnerability_records WHERE client_id = ${row.client_id} AND status = 'active'`);
+      FROM vulnerability_records
+     WHERE client_id = ${row.client_id} AND status = 'active' AND driver <> 'none'`);
 
   const taskRows = await db.execute<{
     id: string; title: string; due_at: string | null; status: string;

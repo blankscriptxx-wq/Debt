@@ -45,11 +45,18 @@ export function workflowPrincipal(
   return { kind: 'workflow', tenantId, runId, permissions: new Set(permissions) };
 }
 
-/** Principal for an AI capability. Cannot hold a regulated permission. */
+/**
+ * Principal for an AI capability. Cannot hold a regulated permission.
+ *
+ * The invocation id is optional because a capability is authorised *before* its
+ * invocation row is written — requiring it made the principal impossible to
+ * construct for the one thing it exists for. Nothing in authorisation reads it;
+ * it is carried for the record.
+ */
 export function aiPrincipal(
   tenantId: string,
   capability: string,
-  invocationId: string,
+  invocationId?: string,
 ): Principal {
   return { kind: 'ai', tenantId, capability, invocationId };
 }

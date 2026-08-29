@@ -6,3 +6,5 @@ export * from './debts.js';
 export * from './appointments.js';
 export * from './verification.js';
 export * from './statement-entry.js';
+export * from './vulnerability.js';
+export * from './consent.js';

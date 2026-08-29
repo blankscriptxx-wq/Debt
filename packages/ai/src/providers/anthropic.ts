@@ -1,5 +1,6 @@
 import Anthropic from '@anthropic-ai/sdk';
 import { AiProviderError, type AiProvider, type AiRequest, type AiResponse } from '../provider.js';
+import { StubAiProvider } from './stub.js';
 
 /**
  * Anthropic-backed provider.
@@ -118,12 +119,9 @@ export class AnthropicAiProvider implements AiProvider {
  */
 export function resolveProvider(options: AnthropicProviderOptions = {}): AiProvider {
   const apiKey = options.apiKey ?? process.env['ANTHROPIC_API_KEY'];
-  if (!apiKey) {
-    // Imported lazily so the stub is not part of the production bundle graph
-    // when a real provider is configured.
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const { StubAiProvider } = require('./stub.js') as typeof import('./stub.js');
-    return new StubAiProvider();
-  }
+  // Imported statically. A lazy `require` here was unreachable in an ES module
+  // and would have thrown the first time anything called this — which nothing
+  // did, until now.
+  if (!apiKey) return new StubAiProvider();
   return new AnthropicAiProvider(options);
 }

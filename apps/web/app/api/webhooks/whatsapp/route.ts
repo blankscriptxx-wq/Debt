@@ -1,7 +1,8 @@
-import { NextResponse } from 'next/server';
+import { NextResponse, after } from 'next/server';
 import { createHmac, timingSafeEqual } from 'node:crypto';
 import { sql, withPlatform, withTenant } from '@solvenda/db';
-import { receiveInbound, ingestAttachment } from '@solvenda/comms';
+import { receiveInbound, ingestAttachment, scanInboundForVulnerability } from '@solvenda/comms';
+import { resolveProvider } from '@solvenda/ai';
 import { SimulatedWhatsApp } from '@solvenda/integrations';
 
 export const dynamic = 'force-dynamic';
@@ -23,6 +24,16 @@ export const dynamic = 'force-dynamic';
  * resolving after about seven days and its download URL lasts minutes. Waiting
  * until an adviser clicks "save" is a design that loses a client's bank
  * statement, so ingestion happens as part of accepting the message.
+ *
+ * **The message is read for signs of vulnerability, after the response.** A
+ * client in difficulty mentions their diagnosis in passing, because it is why
+ * they are in difficulty, and everywhere else that sentence sits in a log until
+ * somebody scrolls past it. It runs in `after()` rather than inline for a
+ * concrete reason: the provider redelivers a webhook that does not answer
+ * promptly, and `receiveInbound` inserts unconditionally — so a slow model call
+ * on the delivery path would turn into duplicate messages as well as a slow
+ * reply. Attachments stay before the response, because their bytes expire in
+ * minutes and an assessment does not.
  *
  * The provider is a simulator until a firm connects a real one. What arrives
  * here has the same shape either way.
@@ -164,6 +175,28 @@ export async function POST(request: Request) {
       console.error('ingesting an inbound attachment failed', cause);
     });
   }
+
+  // Read after the response is flushed. Nothing here can delay the 202, and a
+  // failure is contained in the invocation ledger rather than losing a message
+  // the client can see was delivered.
+  after(async () => {
+    const scanCtx = {
+      tenantId: account.tenant_id,
+      actorType: 'integration' as const,
+      // Its own label: this work is the capability's, not the webhook's, and an
+      // `ai.proposal.created` entry attributed to 'whatsapp:webhook' would say
+      // the wrong thing about who raised it.
+      actorLabel: 'ai:vulnerability-indicators',
+    };
+    await withTenant(scanCtx, (db) => scanInboundForVulnerability(db, scanCtx, {
+      conversationId: received.conversationId,
+      communicationId: received.communicationId,
+      clientId: received.clientId,
+      provider: resolveProvider(),
+    })).catch((cause) => {
+      console.error('assessing an inbound message for vulnerability failed', cause);
+    });
+  });
 
   return NextResponse.json({
     data: {

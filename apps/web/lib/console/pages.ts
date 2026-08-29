@@ -89,7 +89,8 @@ export async function loadCompliance(db: Database): Promise<ComplianceSummary> {
        GROUP BY rule_key ORDER BY count(*) DESC LIMIT 10`),
     db.execute<{ driver: string; n: string }>(sql`
       SELECT driver, count(*)::text AS n FROM vulnerability_records
-       WHERE status = 'active' GROUP BY driver ORDER BY count(*) DESC`),
+       WHERE status = 'active' AND driver <> 'none'
+       GROUP BY driver ORDER BY count(*) DESC`),
     db.execute<Record<string, string | null>>(sql`
       SELECT a.id, a.action, a.actor_label, a.reason, a.occurred_at::text, k.reference
         FROM audit_events a

@@ -3,7 +3,8 @@ import { sql, type Database, type TenantContext } from '@solvenda/db';
 import { recordAudit } from '@solvenda/audit';
 import { requirePermission, workflowPrincipal, isRegulatedPermission, type Principal } from '@solvenda/auth';
 import { evaluate, type Expression, type Facts } from '@solvenda/core';
-import { createProposals, invokeCapability, capability, type AiProvider } from '@solvenda/ai';
+import { createProposals, proposalsFromOutput, invokeCapability, capability,
+         type AiProvider } from '@solvenda/ai';
 import type { WorkflowDefinition, WorkflowStep } from './schema.js';
 
 /**
@@ -349,8 +350,11 @@ async function executeStep(args: {
         });
 
         if (step.createProposals && definition.producesProposals) {
-          const proposals = proposalsFrom(invocation.invocationId, run.case_id,
-            step.capability, invocation.output, definition.touchesRegulatedFields);
+          const proposals = proposalsFromOutput({
+            invocationId: invocation.invocationId,
+            caseId: run.case_id, clientId: run.client_id,
+            capabilityKey: step.capability, output: invocation.output,
+          });
           if (proposals.length) await createProposals(db, ctx, proposals);
           return { status: 'succeeded',
                    output: { invocationId: invocation.invocationId, proposalCount: proposals.length } };
@@ -640,54 +644,3 @@ function flatten(value: unknown, prefix: string): Record<string, never> {
 }
 
 /** Turns a capability's structured output into proposals a person can decide. */
-function proposalsFrom(
-  invocationId: string,
-  caseId: string | null,
-  capabilityKey: string,
-  output: unknown,
-  regulated: boolean,
-): Parameters<typeof createProposals>[2][number][] {
-  const result = output as Record<string, unknown>;
-
-  if (capabilityKey === 'ie-discrepancy' && Array.isArray(result['differences'])) {
-    return (result['differences'] as Record<string, unknown>[])
-      .filter((d) => d['materiality'] === 'material' || d['materiality'] === 'notable')
-      .map((d) => ({
-        invocationId, caseId,
-        proposalType: 'expenditure-review',
-        targetTable: 'financial_statement_lines',
-        targetField: 'amount_pence',
-        currentValue: d['declaredMonthlyPence'],
-        proposedValue: d['observedMonthlyPence'],
-        reasoning: String(d['questionForAdviser'] ?? 'Declared and observed figures differ materially.'),
-        confidence: typeof result['confidence'] === 'number' ? result['confidence'] : null,
-        touchesRegulatedField: true,
-      }));
-  }
-
-  if (capabilityKey === 'duplicate-debt' && Array.isArray(result['pairs'])) {
-    return (result['pairs'] as Record<string, unknown>[]).map((p) => ({
-      invocationId, caseId,
-      proposalType: 'duplicate-debt',
-      targetTable: 'debts', targetField: 'status',
-      currentValue: 'active', proposedValue: 'duplicate',
-      reasoning: String(p['reasoning'] ?? 'These appear to be the same account.'),
-      confidence: typeof p['confidence'] === 'number' ? p['confidence'] : null,
-      touchesRegulatedField: false,
-    }));
-  }
-
-  if (capabilityKey === 'vulnerability-indicators' && Array.isArray(result['signals'])) {
-    return (result['signals'] as Record<string, unknown>[]).map((s) => ({
-      invocationId, caseId,
-      proposalType: 'vulnerability-consideration',
-      targetTable: 'vulnerability_records', targetField: null,
-      proposedValue: s,
-      reasoning: String(s['suggestedApproach'] ?? 'A possible vulnerability signal for you to consider.'),
-      confidence: null,
-      touchesRegulatedField: true,
-    }));
-  }
-
-  return regulated ? [] : [];
-}

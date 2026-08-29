@@ -7,3 +7,4 @@ export * from './signature.js';
 export * from './templates.js';
 export * from './send.js';
 export * from './timeline.js';
+export * from './vulnerability-scan.js';

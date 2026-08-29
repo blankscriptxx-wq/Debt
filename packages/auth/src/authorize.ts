@@ -21,7 +21,7 @@ export type Principal =
     }
   | { kind: 'api_key'; tenantId: string; keyId: string; scopes: ReadonlySet<string> }
   | { kind: 'workflow'; tenantId: string; runId: string; permissions: ReadonlySet<string> }
-  | { kind: 'ai'; tenantId: string; capability: string; invocationId: string }
+  | { kind: 'ai'; tenantId: string; capability: string; invocationId?: string }
   | { kind: 'platform_operator'; operatorId: string; tenantId?: string };
 
 export type AuthorizationDecision =
